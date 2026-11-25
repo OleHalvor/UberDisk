@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using UberDisk.Core.Deleting;
 using UberDisk.Core.Drives;
 using UberDisk.Core.Model;
 using UberDisk.Core.Viz;
@@ -376,17 +377,19 @@ public partial class MainWindow : Window
 
     private void HideHoverCard() => HoverCard.Visibility = Visibility.Collapsed;
 
-    private void OnContextRequested(Segment? seg, Point p)
+    private void OnContextRequested(Segment? seg, bool center, Point p)
     {
         Node? node = seg?.Node ?? Chart.CenterNode;
         if (node == null || node is DirNode { IsSynthetic: true }) return;
         HideHoverCard();
-        var menu = BuildMenu(node);
+        // Delete is offered only for what is under the mouse: a segment or the centre disc. Empty space and the
+        // free-space arc fall back to the centre folder's menu for Explorer/Copy path, but never offer Delete.
+        var menu = BuildMenu(node, allowDelete: seg != null || center);
         menu.PlacementTarget = Chart;
         menu.IsOpen = true;
     }
 
-    private ContextMenu BuildMenu(Node node)
+    private ContextMenu BuildMenu(Node node, bool allowDelete)
     {
         var menu = new ContextMenu();
         var header = new MenuItem
@@ -416,7 +419,68 @@ public partial class MainWindow : Window
         if (isDir && ActiveSession?.State == ScanState.Done)
             menu.Items.Add(Item("\uE72C", node.Parent == null ? "Rescan drive" : "Rescan this folder only", node.Parent == null ? "F5" : "",
                 () => RescanFolder((DirNode)node)));
+        if (allowDelete && ActiveSession is { } s)
+        {
+            var block = DeleteSafety.CheckTree(node, s.Tree, s.State != ScanState.Done);
+            if (block is not (DeleteBlock.DriveRoot or DeleteBlock.Synthetic or DeleteBlock.NotInTree))
+            {
+                menu.Items.Add(new Separator());
+                var del = Item("\uE74D", node.IsDirectory ? "Delete folder…" : "Delete file…", "", () => DeleteNode(node, s));
+                if (block != DeleteBlock.None)
+                {
+                    del.IsEnabled = false;
+                    del.ToolTip = DeleteSafety.Explain(block);
+                    ToolTipService.SetShowOnDisabled(del, true);
+                }
+                menu.Items.Add(del);
+            }
+        }
         return menu;
+    }
+
+    /// <summary>
+    /// Delete: checks, then the confirmation with the full path, then the Recycle Bin for exactly that path. Every
+    /// check runs again right before the Recycle Bin call (see <see cref="Deleter"/>).
+    /// </summary>
+    private async void DeleteNode(Node node, DriveSession s)
+    {
+        DeletePlan? plan;
+        DeleteBlock block;
+        var tree = s.Tree;
+        bool running = s.State != ScanState.Done;
+        Mouse.OverrideCursor = Cursors.Wait;
+        try { (plan, block) = await Task.Run(() => DeleteSafety.Plan(node, tree, running)); }
+        finally { Mouse.OverrideCursor = null; }
+        if (plan == null)
+        {
+            MessageBox.Show(this, DeleteSafety.Explain(block), "Can't delete", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dlg = new ConfirmDeleteWindow(plan) { Owner = this };
+        if (dlg.ShowDialog() != true || dlg.ConfirmedPath == null) return;
+
+        DeleteResult result;
+        Mouse.OverrideCursor = Cursors.Wait;
+        try
+        {
+            var deleter = new Deleter(new ShellRecycler(new WindowInteropHelper(this).Handle));
+            result = deleter.Execute(plan, dlg.ConfirmedPath, s.Tree, s.State != ScanState.Done, _scans.SyncRoot);
+        }
+        finally { Mouse.OverrideCursor = null; }
+
+        if (result.Outcome == DeleteOutcome.Deleted)
+        {
+            // Groups may name the deleted file: stop any search for this drive and search again (fast, from the hash cache).
+            if (_dups.TryGetValue(s.Meta.Root, out var dupState)) dupState.Running?.Cancel();
+            _dups.Remove(s.Meta.Root);
+            Chart.SelectedGroup = null;
+            EnsureDuplicates();
+            UpdateAll();
+        }
+        else
+            MessageBox.Show(this, result.Message, "Not deleted", MessageBoxButton.OK,
+                result.Outcome == DeleteOutcome.Failed ? MessageBoxImage.Warning : MessageBoxImage.Information);
     }
 
     private static MenuItem Item(string glyph, string text, string gesture, Action action)

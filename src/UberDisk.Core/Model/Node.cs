@@ -67,15 +67,17 @@ public abstract class Node
 
 public sealed class FileNode : Node
 {
-    public FileNode(string name, DirNode parent, long size, int count = 1) : base(name, parent)
+    public FileNode(string name, DirNode parent, long size, int count = 1, bool? aggregate = null) : base(name, parent)
     {
         _size = size;
         Count = count;
+        IsAggregate = aggregate ?? count > 1;
     }
 
     /// <summary>1 for a single file. More than 1 for the bucket that groups a folder's many small files.</summary>
     public int Count { get; }
-    public bool IsAggregate => Count > 1;
+    /// <summary>The bucket of a folder's smaller files (even when it holds just one): not a real file on disk.</summary>
+    public bool IsAggregate { get; }
     public override bool IsDirectory => false;
 }
 
@@ -171,6 +173,21 @@ public sealed class DirNode : Node
         AddUp(newChild.Size - oldChild.Size,
               newChild.FileCount - oldChild.FileCount,
               newChild.DirCount - oldChild.DirCount);
+    }
+
+    /// <summary>Takes a deleted child out and subtracts its size and counts from every ancestor.</summary>
+    public void RemoveChild(Node child)
+    {
+        var ch = Children ?? throw new InvalidOperationException("Folder has no children yet.");
+        int i = Array.IndexOf(ch, child);
+        if (i < 0) throw new ArgumentException("Not a child of this folder.", nameof(child));
+        var copy = new Node[ch.Length - 1];
+        Array.Copy(ch, 0, copy, 0, i);
+        Array.Copy(ch, i + 1, copy, i, ch.Length - i - 1);
+        PublishChildren(copy);
+        long files = child is DirNode d ? d.FileCount : ((FileNode)child).Count;
+        long dirs = child is DirNode d2 ? d2.DirCount + 1 : 0;
+        AddUp(-child.Size, -files, -dirs);
     }
 }
 

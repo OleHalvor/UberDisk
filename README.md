@@ -33,7 +33,14 @@ No admin rights are needed. Run as administrator only if you want the "Unscanned
 - **Chart:** click a folder to zoom in, click the centre disc (or Backspace) to go up. Back/forward with Alt+←/→ or the
   mouse side buttons. The breadcrumb is clickable.
 - **Hover** shows size on disk, % of parent, % of drive, and file/folder counts. **Right-click**: Zoom into folder,
-  Open in Explorer (Ctrl+E), Copy path (Ctrl+C), Rescan this folder only. The app is read-only: it never deletes anything.
+  Open in Explorer (Ctrl+E), Copy path (Ctrl+C), Rescan this folder only, and **Delete**.
+- **Delete** moves the right-clicked file or folder to the Recycle Bin after a confirmation that shows the full path,
+  size and file count (Cancel is the default; Enter and Esc cancel). It is never offered for the drive root, the
+  "Unscanned" segment, the "N smaller files" bundle, empty space or the free-space arc, or while a scan runs. Right
+  before the Recycle Bin call every check runs again: same path as confirmed, still in the chart, same item on disk
+  (not replaced), not a junction or symbolic link, and no link anywhere inside a folder. If anything changed, nothing
+  is deleted. Paths over 259 characters are refused (the Recycle Bin can't take them).
+  Network and removable drives are refused too (Windows may delete for good there).
 - **Rescan / F5** rescans the current drive and turns into **Stop** while it runs. Stopping a rescan brings back the
   previous result.
 - **Footer toggles:** *Colour* (size: biggest siblings are red, small ones yellow; view; folders), *Free space*

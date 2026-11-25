@@ -218,7 +218,7 @@ public sealed class ScanJob
                 else rest += files[i].AllocatedSize;
             }
             int restCount = files.Count - keep;
-            children.Add(new FileNode($"{restCount:N0} smaller files", node, rest, restCount));
+            children.Add(new FileNode($"{restCount:N0} smaller files", node, rest, restCount, aggregate: true));
         }
 
         if (node.Parent == null)

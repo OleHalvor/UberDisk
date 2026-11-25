@@ -331,7 +331,8 @@ public sealed class DuplicateFinder
         catch { return null; }
     }
 
-    [StructLayout(LayoutKind.Sequential)]
+    // Pack = 4: Windows aligns the FILETIME fields to 4 bytes; C#'s default (8 for long) would shift the later fields.
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
     private struct BY_HANDLE_FILE_INFORMATION
     {
         public uint FileAttributes;

@@ -85,6 +85,9 @@ public sealed class ScanCoordinator
     private readonly Func<DriveMeta, ScanOptions> _optionsFor;
     private readonly object _lock = new();
 
+    /// <summary>The lock that guards tree changes (rescan of a folder, delete). Hold it briefly only.</summary>
+    public object SyncRoot => _lock;
+
     private readonly Func<DriveMeta, DriveMeta>? _refresh;
 
     /// <param name="optionsFor">Scan options per drive (threads by drive type by default).</param>

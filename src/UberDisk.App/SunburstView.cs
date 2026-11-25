@@ -99,7 +99,8 @@ public sealed class SunburstView : SkiaCanvas
     public event Action<Segment>? SegmentClicked;
     public event Action? CenterClicked;
     public event Action<Segment?, Point>? HoverChanged;
-    public event Action<Segment?, Point>? ContextRequested;
+    /// <summary>Right-click: the segment under the mouse (null on empty space or the free-space arc), and whether it was the centre disc.</summary>
+    public event Action<Segment?, bool, Point>? ContextRequested;
     public event Action? BackRequested;
     public event Action? ForwardRequested;
 
@@ -170,7 +171,7 @@ public sealed class SunburstView : SkiaCanvas
                 SegmentClicked?.Invoke(seg.Value);
                 break;
             case MouseButton.Right:
-                ContextRequested?.Invoke(seg, p);
+                ContextRequested?.Invoke(seg, center, p);
                 break;
             case MouseButton.XButton1:
                 BackRequested?.Invoke();
