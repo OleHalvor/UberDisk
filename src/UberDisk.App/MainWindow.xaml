@@ -1,0 +1,234 @@
+<Window x:Class="UberDisk.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:UberDisk.App"
+        Title="UberDisk" Width="1440" Height="900" MinWidth="760" MinHeight="520"
+        Background="{StaticResource Bg}" Foreground="{StaticResource Text}"
+        FontFamily="{StaticResource UiFont}" FontSize="13"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display"
+        WindowStartupLocation="CenterScreen" Icon="Assets/UberDisk.ico">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="250" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <!-- ============ Drive rail ============ -->
+    <Border Background="{StaticResource RailBg}" BorderBrush="{StaticResource Divider}" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="DRIVES" Margin="16,18,16,10" FontSize="11.5"
+                   Foreground="{StaticResource TextDim}" FontWeight="SemiBold" />
+        <TextBlock x:Name="RailStatus" DockPanel.Dock="Bottom" Margin="16,8,16,14" FontSize="11.5"
+                   Foreground="{StaticResource TextFaint}" TextWrapping="Wrap" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+          <ItemsControl x:Name="DriveList" Margin="14,0,14,8" Focusable="False">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type local:DriveCard}">
+                <Border x:Name="card" Margin="0,0,0,9" Padding="12,10,12,11" CornerRadius="7"
+                        Background="{StaticResource CardBg}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
+                        Cursor="Hand" MouseLeftButtonUp="Card_Click" ToolTip="{Binding Tooltip}">
+                  <StackPanel>
+                    <Grid>
+                      <TextBlock FontSize="14">
+                        <Run Text="{Binding Letter, Mode=OneWay}" FontWeight="Bold" /><Run Text=" " /><Run Text="{Binding Label, Mode=OneWay}" />
+                      </TextBlock>
+                      <Button x:Name="rescan" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-4,-6,-4"
+                              Style="{StaticResource IconButton}" Width="26" Height="26" FontSize="13"
+                              Foreground="{StaticResource Accent}" Content="&#xE72C;" ToolTip="Rescan (F5)"
+                              Click="CardRescan_Click" Visibility="Collapsed" />
+                      <TextBlock x:Name="spinner" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                 FontFamily="{StaticResource IconFont}" FontSize="13" Foreground="{StaticResource Accent}"
+                                 Text="&#xE895;" Visibility="Collapsed" RenderTransformOrigin="0.5,0.5">
+                        <TextBlock.RenderTransform>
+                          <RotateTransform />
+                        </TextBlock.RenderTransform>
+                      </TextBlock>
+                    </Grid>
+                    <TextBlock Margin="0,3,0,0" FontSize="12" Foreground="{StaticResource TextDim}" TextTrimming="CharacterEllipsis">
+                      <Run Text="{Binding KindText, Mode=OneWay}" /><Run Text=" · " /><Run x:Name="status" Text="{Binding StatusText, Mode=OneWay}" />
+                    </TextBlock>
+                    <Grid Margin="0,8,0,6" Height="4">
+                      <Border Background="{StaticResource BarTrack}" CornerRadius="2" />
+                      <Border Background="{Binding FillBrush}" CornerRadius="2" HorizontalAlignment="Left"
+                              Width="{Binding FillWidth}" />
+                    </Grid>
+                    <Grid>
+                      <TextBlock FontSize="12" Foreground="{StaticResource TextDim}" Text="{Binding UsedText}" />
+                      <TextBlock FontSize="12" Foreground="{StaticResource TextDim}" Text="{Binding FreeText}" HorizontalAlignment="Right" />
+                    </Grid>
+                  </StackPanel>
+                </Border>
+                <DataTemplate.Triggers>
+                  <Trigger SourceName="card" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="card" Property="Background" Value="{StaticResource CardHover}" />
+                  </Trigger>
+                  <DataTrigger Binding="{Binding IsActive}" Value="True">
+                    <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource Accent}" />
+                    <Setter TargetName="card" Property="Background" Value="#1E2433" />
+                    <Setter TargetName="rescan" Property="Visibility" Value="Visible" />
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding IsScanning}" Value="True">
+                    <Setter TargetName="rescan" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="spinner" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="status" Property="Foreground" Value="#6CA8FF" />
+                    <DataTrigger.EnterActions>
+                      <BeginStoryboard x:Name="spinStory">
+                        <Storyboard>
+                          <DoubleAnimation Storyboard.TargetName="spinner" Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                           From="0" To="360" Duration="0:0:1" RepeatBehavior="Forever" />
+                        </Storyboard>
+                      </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions>
+                      <StopStoryboard BeginStoryboardName="spinStory" />
+                    </DataTrigger.ExitActions>
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding IsReady}" Value="False">
+                    <Setter TargetName="card" Property="Opacity" Value="0.5" />
+                  </DataTrigger>
+                </DataTemplate.Triggers>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <!-- ============ Chart area ============ -->
+    <Grid Grid.Column="1">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="52" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="36" />
+      </Grid.RowDefinitions>
+
+      <!-- Top bar: nav arrows, breadcrumb, progress, Rescan/Stop -->
+      <Border BorderBrush="{StaticResource Divider}" BorderThickness="0,0,0,1">
+        <DockPanel Margin="16,0,16,0" LastChildFill="True">
+          <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button x:Name="BackBtn" Style="{StaticResource IconButton}" Content="&#xE72B;" ToolTip="Back (Alt+Left)" Click="Back_Click" />
+            <Button x:Name="ForwardBtn" Style="{StaticResource IconButton}" Content="&#xE72A;" ToolTip="Forward (Alt+Right)" Click="Forward_Click" />
+            <Button x:Name="UpBtn" Style="{StaticResource IconButton}" Content="&#xE74A;" ToolTip="Up (Backspace)" Click="Up_Click" Margin="0,0,14,0" />
+          </StackPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button x:Name="DupBtn" Style="{StaticResource OutlineButton}" Margin="0,0,10,0" Click="Dup_Click"
+                    ToolTip="Find identical big files on this drive. Read-only: it only shows them.">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8C8;" FontSize="13" VerticalAlignment="Center" Margin="0,1,7,0" />
+                <TextBlock Text="Duplicates" VerticalAlignment="Center" />
+                <Border x:Name="DupBadge" Visibility="Collapsed" Background="#4DD9F0" CornerRadius="8" Padding="7,1,7,1" Margin="8,0,0,0">
+                  <TextBlock x:Name="DupBadgeText" Foreground="#0E1116" FontSize="11.5" FontWeight="SemiBold" />
+                </Border>
+              </StackPanel>
+            </Button>
+            <Grid x:Name="ProgressBox" Width="200" Height="4" Margin="0,0,14,0" Visibility="Collapsed">
+              <Border Background="{StaticResource BarTrack}" CornerRadius="2" />
+              <Border x:Name="ProgressFill" Background="{StaticResource BarBlue}" CornerRadius="2" HorizontalAlignment="Left" Width="0" />
+            </Grid>
+            <Button x:Name="RescanBtn" Style="{StaticResource PrimaryButton}" Click="Rescan_Click">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="RescanIcon" FontFamily="{StaticResource IconFont}" Text="&#xE72C;" FontSize="13"
+                           VerticalAlignment="Center" Margin="0,1,8,0" />
+                <TextBlock x:Name="RescanText" Text="Rescan" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+          <ItemsControl x:Name="Crumbs" VerticalAlignment="Center" Focusable="False">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+          </ItemsControl>
+        </DockPanel>
+      </Border>
+
+      <!-- Duplicates side panel + chart with hover card overlay -->
+      <DockPanel Grid.Row="1">
+      <Border x:Name="DupPanel" DockPanel.Dock="Right" Width="350" Visibility="Collapsed" Background="{StaticResource RailBg}"
+              BorderBrush="{StaticResource Divider}" BorderThickness="1,0,0,0">
+        <DockPanel Margin="16,14,8,12">
+          <Grid DockPanel.Dock="Top">
+            <TextBlock x:Name="DupTitle" FontSize="15" FontWeight="SemiBold" Text="Duplicates" VerticalAlignment="Center" />
+            <Button HorizontalAlignment="Right" Style="{StaticResource IconButton}" Width="26" Height="26" FontSize="11"
+                    Content="&#xE711;" Click="DupClose_Click" ToolTip="Close" Margin="0,0,4,0" />
+          </Grid>
+          <TextBlock x:Name="DupSummary" DockPanel.Dock="Top" Margin="0,4,8,0" Foreground="{StaticResource TextDim}" TextWrapping="Wrap" />
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,6,0,10">
+            <TextBlock Text="Sorted by space wasted · Min size" Foreground="{StaticResource TextFaint}" FontSize="12" VerticalAlignment="Center" />
+            <Button x:Name="DupMinBtn" Style="{StaticResource CrumbButton}" FontSize="12" Padding="5,2" Click="DupMin_Click"
+                    ToolTip="Click for the next minimum file size: 100 MB, 500 MB, 1 GB" />
+          </StackPanel>
+          <TextBlock DockPanel.Dock="Bottom" Margin="0,10,8,0" FontSize="11.5" Foreground="{StaticResource TextFaint}" TextWrapping="Wrap"
+                     Text="Byte-identical files only: same size, then a quick partial hash, then a full SHA-256. Read-only: open the folder or copy the path, delete there, then press Rescan." />
+          <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+            <StackPanel x:Name="DupList" Margin="0,0,8,0" />
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+      <Grid x:Name="ChartHost" ClipToBounds="True">
+        <local:SunburstView x:Name="Chart" />
+        <TextBlock x:Name="EmptyText" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Foreground="{StaticResource TextDim}" FontSize="15" Visibility="Collapsed" TextAlignment="Center" />
+        <Canvas IsHitTestVisible="False">
+          <Border x:Name="HoverCard" Visibility="Collapsed" MaxWidth="320" Padding="12,8,12,8" CornerRadius="6"
+                  Background="{StaticResource PopupBg}" BorderBrush="{StaticResource PopupBorder}" BorderThickness="1">
+            <Border.Effect>
+              <DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.4" Color="Black" />
+            </Border.Effect>
+            <StackPanel>
+              <TextBlock x:Name="HcName" FontSize="13.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextAlignment="Center" />
+              <TextBlock x:Name="HcSize" FontSize="12.5" Foreground="{StaticResource TextDim}" Margin="0,2,0,0" TextAlignment="Center" />
+              <TextBlock x:Name="HcDup" FontSize="12.5" Foreground="#4DD9F0" Margin="0,2,0,0" TextAlignment="Center" Visibility="Collapsed" />
+            </StackPanel>
+          </Border>
+        </Canvas>
+      </Grid>
+      </DockPanel>
+
+      <!-- Footer: keyboard hints and last scan info -->
+      <Grid Grid.Row="2" Margin="18,0,18,10" VerticalAlignment="Center" x:Name="Footer" SizeChanged="Footer_SizeChanged">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel x:Name="Toggles" Grid.Column="2" Orientation="Horizontal" Margin="14,0,0,0">
+          <Button x:Name="ColorToggle" Margin="0,0,14,0" Style="{StaticResource CrumbButton}" FontSize="11.5"
+                  Foreground="{StaticResource TextFaint}" Click="ColorToggle_Click"
+                  ToolTip="Click to switch colouring. Size: red for the biggest item in each folder, towards yellow for smaller ones (like OverDisk). View: red only for items big in the whole view. Folders: one colour per top-level folder." />
+          <Button x:Name="FreeToggle" Margin="0,0,14,0" Style="{StaticResource CrumbButton}" FontSize="11.5"
+                  Foreground="{StaticResource TextFaint}" Click="FreeToggle_Click"
+                  ToolTip="Click to show or hide free space. Shown: the drive view leaves the free part of the disk empty, so every slice is sized against the whole disk. Hidden: slices share the used space." />
+          <Button x:Name="RingToggle" Margin="0,0,14,0" Style="{StaticResource CrumbButton}" FontSize="11.5"
+                  Foreground="{StaticResource TextFaint}" Click="RingToggle_Click"
+                  ToolTip="Click to switch ring thickness. Even: all rings equally thick. Thin: every ring covers the same area, so outer rings get thinner (like OverDisk)." />
+          <Button x:Name="AnimToggle" Style="{StaticResource CrumbButton}" FontSize="11.5"
+                  Foreground="{StaticResource TextFaint}" Click="AnimToggle_Click"
+                  ToolTip="Click to try the next scan animation: sweep, spiral, bloom or quick. Shows on a scan or rescan of the whole drive." />
+        </StackPanel>
+        <TextBlock x:Name="ScanInfo" Grid.Column="1" Margin="16,0,0,0" FontSize="11.5" Foreground="{StaticResource TextFaint}"
+                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <StackPanel x:Name="Hints" Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True">
+          <StackPanel.Resources>
+            <Style TargetType="TextBlock">
+              <Setter Property="FontSize" Value="11.5" />
+              <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+              <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+          </StackPanel.Resources>
+          <TextBlock Text="Back" />
+          <Border Style="{StaticResource Key}"><TextBlock Text="Alt ←" /></Border>
+          <TextBlock Text="/ mouse back" Margin="0,0,18,0" />
+          <TextBlock Text="Up" />
+          <Border Style="{StaticResource Key}"><TextBlock Text="Backspace" /></Border>
+          <TextBlock Text="or click centre" Margin="0,0,18,0" />
+          <TextBlock Text="Rescan" />
+          <Border Style="{StaticResource Key}"><TextBlock Text="F5" /></Border>
+          <TextBlock Text="Switch drive" Margin="14,0,0,0" />
+          <Border Style="{StaticResource Key}"><TextBlock Text="drive letter" /></Border>
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>

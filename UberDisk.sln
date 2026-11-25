@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{5468E69C-C4D6-4E8D-A069-691D036F9647}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UberDisk.Core", "src\UberDisk.Core\UberDisk.Core.csproj", "{E7C161D0-D1BD-4FB6-8CA9-196376D08CEE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{D7A4BB0A-AB3F-4A25-BF1D-70A42D58FD27}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UberDisk.Core.Tests", "tests\UberDisk.Core.Tests\UberDisk.Core.Tests.csproj", "{104BB9CD-D672-4A4E-89E0-70189008ADB7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E7C161D0-D1BD-4FB6-8CA9-196376D08CEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E7C161D0-D1BD-4FB6-8CA9-196376D08CEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E7C161D0-D1BD-4FB6-8CA9-196376D08CEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E7C161D0-D1BD-4FB6-8CA9-196376D08CEE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{104BB9CD-D672-4A4E-89E0-70189008ADB7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{104BB9CD-D672-4A4E-89E0-70189008ADB7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{104BB9CD-D672-4A4E-89E0-70189008ADB7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{104BB9CD-D672-4A4E-89E0-70189008ADB7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E7C161D0-D1BD-4FB6-8CA9-196376D08CEE} = {5468E69C-C4D6-4E8D-A069-691D036F9647}
+		{104BB9CD-D672-4A4E-89E0-70189008ADB7} = {D7A4BB0A-AB3F-4A25-BF1D-70A42D58FD27}
+	EndGlobalSection
+EndGlobal
