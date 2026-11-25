@@ -70,12 +70,11 @@ public partial class MainWindow
         long min = AppSettings.DuplicateMinSize;
         if (st.Tree == tree && st.MinSize == min && (st.Running != null || st.Result != null || st.Error != null)) return;
 
-        // One search at a time: a search for another drive or an older tree is stopped.
-        foreach (var other in _dups.Values)
-        {
-            other.Running?.Cancel();
-            other.Running = null;
-        }
+        // Only this drive's older search is stopped. Another drive's search goes on: stopping it threw away the file
+        // it was halfway through, and it started over from that file when its drive was picked again. Each search is
+        // one background-priority thread reading its own drive.
+        st.Running?.Cancel();
+        st.Running = null;
         if (st.MinSize != min) st.Result = null; // a different minimum size: old groups would mislead
         st.Tree = tree;
         st.MinSize = min;
@@ -84,23 +83,39 @@ public partial class MainWindow
         {
             MinSize = min,
             Cache = _hashCache,
-            Busy = () => _scans.Sessions.Any(x => x.State == ScanState.Scanning),
+            // Runs on the search's thread: AnyScanning takes the coordinator's lock, so it never reads the drive list
+            // while the UI thread changes it (a drive plugged in or removed).
+            Busy = () => _scans.AnyScanning,
         });
         st.Running = finder;
-        finder.RunAsync().ContinueWith(t => Dispatcher.BeginInvoke(() =>
+        finder.RunAsync().ContinueWith(t =>
         {
-            if (st.Running != finder) return; // superseded
-            st.Running = null;
-            if (t.IsCompletedSuccessfully)
-            {
-                st.Result = t.Result;
-                Chart.SelectedGroup = null;
-                _hashCache.Save();
-            }
-            else if (!t.IsCanceled) st.Error = t.Exception?.GetBaseException().Message;
-            UpdateDuplicateUi();
-            UpdateView();
-        }));
+            // Finished, stopped or failed: keep the hashes made so far (the cache also saves itself every 30 s).
+            _hashCache.Save();
+            Dispatcher.BeginInvoke(() => OnDuplicatesDone(st, finder, t));
+        });
+    }
+
+    private void OnDuplicatesDone(DupState st, DuplicateFinder finder, Task<DuplicateResult> t)
+    {
+        if (st.Running != finder) return; // superseded
+        st.Running = null;
+        if (t.IsCompletedSuccessfully)
+        {
+            st.Result = t.Result;
+            // The panel's selection only belongs to the drive on screen.
+            if (_active != null && _dups.TryGetValue(_active, out var shown) && shown == st) Chart.SelectedGroup = null;
+        }
+        else if (!t.IsCanceled) st.Error = t.Exception?.GetBaseException().Message;
+        UpdateDuplicateUi();
+        UpdateView();
+    }
+
+    /// <summary>On close: stop the searches and keep the hashes made so far.</summary>
+    private void StopDuplicatesAndSave()
+    {
+        foreach (var d in _dups.Values) d.Running?.Cancel();
+        _hashCache.Save();
     }
 
     /// <summary>Badge, panel and chart state. Called on every refresh tick.</summary>

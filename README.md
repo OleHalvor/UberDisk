@@ -40,7 +40,8 @@ No admin rights are needed. Run as administrator only if you want the "Unscanned
   before the Recycle Bin call every check runs again: same path as confirmed, still in the chart, same item on disk
   (not replaced), not a junction or symbolic link, and no link anywhere inside a folder. If anything changed, nothing
   is deleted. Paths over 259 characters are refused (the Recycle Bin can't take them).
-  Network and removable drives are refused too (Windows may delete for good there).
+  Network and removable drives are refused too (Windows may delete for good there). Afterwards the chart counts the
+  item in the drive's $Recycle.Bin folder, where it still takes up space until the Recycle Bin is emptied.
 - **Rescan / F5** rescans the current drive and turns into **Stop** while it runs. Stopping a rescan brings back the
   previous result.
 - **Footer toggles:** *Colour* (size: biggest siblings are red, small ones yellow; view; folders), *Free space*
@@ -79,7 +80,7 @@ tools/Preview             renders the chart to PNG headless (used to check the d
 | Switching drives rescans | Each drive's tree is kept for the session. Switching shows it instantly; only Rescan scans again. |
 | No scan queue | On start the system drive scans first (foreground, full speed). All other fixed and USB drives then scan one after another in the background, with Windows background CPU/IO priority, and pause while a foreground scan runs. Switching to a drive that is mid-scan promotes it. |
 
-SSDs get one thread per core (4–16); HDDs get 2 threads, since parallel reads only make them seek.
+SSDs get one and a half threads per physical core (4–16); HDDs get 2 threads, since parallel reads only make them seek.
 
 ### Not done yet
 

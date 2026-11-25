@@ -226,6 +226,53 @@ public sealed class ScanCoordinator
         Changed?.Invoke(s);
     }
 
+    /// <summary>The Recycle Bin's folder at the root of a drive.</summary>
+    public const string RecycleBinName = "$Recycle.Bin";
+
+    /// <summary>
+    /// Call after something was moved to the Recycle Bin and taken out of the tree. It still takes up the disk, now
+    /// inside the Recycle Bin's folder, so that folder is read again; without this the chart shrank by the deleted
+    /// size while the drive's used space stayed the same, and every other slice grew to fill the gap (a rescan then
+    /// put it back in the Recycle Bin). Also re-reads the drive's free space (an item too big for the Recycle Bin is
+    /// deleted for good) and redoes the grey "unscanned" slice against it.
+    /// </summary>
+    public async Task AfterDeleteAsync(string root)
+    {
+        DriveSession s;
+        DirNode? tree, bin;
+        lock (_lock)
+        {
+            s = _sessions[root];
+            tree = s.Tree;
+            bin = tree?.FindChildDir(RecycleBinName);
+        }
+        if (tree == null) return;
+
+        DirNode? fresh = null;
+        if (bin != null)
+        {
+            var opts = _optionsFor(s.Meta);
+            var path = bin.FullPath;
+            string name = bin.Name;
+            fresh = await Task.Run(() => ScanJob.ScanNow(path, name, opts));
+        }
+        lock (_lock)
+        {
+            if (s.Tree != tree || s.State != ScanState.Done) return; // rescanned in the meantime
+            if (bin != null && fresh != null && tree.Children?.Contains(bin) == true) tree.ReplaceChild(bin, fresh);
+            RefreshMeta(s);
+            RemoveUnseenSpace(tree);
+            AddUnseenSpace(s);
+        }
+        Changed?.Invoke(s);
+    }
+
+    /// <summary>True while any drive scans. Safe from any thread.</summary>
+    public bool AnyScanning
+    {
+        get { lock (_lock) return _sessions.Values.Any(x => x.State == ScanState.Scanning); }
+    }
+
     private static bool IsInTree(DirNode node, DirNode root)
     {
         DirNode? n = node;
@@ -333,6 +380,20 @@ public sealed class ScanCoordinator
         Array.Sort(copy, BySizeDesc.Instance);
         tree.PublishChildren(copy);
         Interlocked.Add(ref tree._size, unseen);
+    }
+
+    /// <summary>Takes the grey "unscanned" slice out again (it is only size, no files or folders).</summary>
+    private static void RemoveUnseenSpace(DirNode tree)
+    {
+        var ch = tree.Children;
+        if (ch == null) return;
+        foreach (var c in ch)
+        {
+            if (c is not DirNode { IsSynthetic: true } synthetic) continue;
+            tree.PublishChildren(ch.Where(x => x != synthetic).ToArray());
+            Interlocked.Add(ref tree._size, -synthetic.Size);
+            return;
+        }
     }
 
     /// <summary>Starts the next background scan when nothing else runs; pauses background work during a foreground scan.</summary>

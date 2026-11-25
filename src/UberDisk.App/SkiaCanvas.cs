@@ -33,11 +33,9 @@ public abstract class SkiaCanvas : FrameworkElement
         _bitmap.Lock();
         try
         {
-            using (var surface = SKSurface.Create(info, _bitmap.BackBuffer, _bitmap.BackBufferStride))
-            {
-                OnPaint(surface.Canvas, info, (float)dpi.DpiScaleX);
-                surface.Canvas.Flush();
-            }
+            float scale = (float)dpi.DpiScaleX;
+            // On several cores when the window is big (see TiledRaster).
+            TiledRaster.Draw(_bitmap.BackBuffer, _bitmap.BackBufferStride, pw, ph, canvas => OnPaint(canvas, info, scale));
             _bitmap.AddDirtyRect(new Int32Rect(0, 0, pw, ph));
         }
         finally

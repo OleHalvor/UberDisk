@@ -154,7 +154,12 @@ public sealed class DuplicateFinder
             int before = big.Count;
             foreach (var c in children)
             {
-                if (c is DirNode sub) { if (!sub.IsSynthetic) stack.Push(sub); }
+                if (c is DirNode sub)
+                {
+                    // Not the Recycle Bin: a file just deleted there would show up as a copy of its twin.
+                    bool recycleBin = d.Parent == null && sub.Name.Equals("$Recycle.Bin", StringComparison.OrdinalIgnoreCase);
+                    if (!sub.IsSynthetic && !recycleBin) stack.Push(sub);
+                }
                 else if (c is FileNode { IsAggregate: true }) bundled = true;
                 else if (c is FileNode f)
                 {
@@ -390,18 +395,28 @@ public sealed class HashCache
             _map[path] = new Entry(length, ticks, quick, full);
             _dirty = true;
         }
+        // A long search keeps what it has hashed even if the app is killed or the PC turns off halfway.
+        if (Environment.TickCount64 - Interlocked.Read(ref _lastSave) >= AutoSaveMs) Save();
     }
+
+    /// <summary>How often <see cref="Put"/> saves the file while hashes keep coming in.</summary>
+    public const int AutoSaveMs = 30_000;
+    private long _lastSave = Environment.TickCount64;
 
     public void Save()
     {
         if (_file == null) return;
         lock (_lock)
         {
+            Interlocked.Exchange(ref _lastSave, Environment.TickCount64);
             if (!_dirty) return;
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(_file)!);
-                File.WriteAllLines(_file, _map.Select(kv => $"{kv.Key}\t{kv.Value.Length}\t{kv.Value.Ticks}\t{kv.Value.Quick}\t{kv.Value.Full}"));
+                // Written next to it, then swapped in: a save cut short never leaves a half-written cache.
+                string tmp = _file + ".tmp";
+                File.WriteAllLines(tmp, _map.Select(kv => $"{kv.Key}\t{kv.Value.Length}\t{kv.Value.Ticks}\t{kv.Value.Quick}\t{kv.Value.Full}"));
+                File.Move(tmp, _file, overwrite: true);
                 _dirty = false;
             }
             catch { /* the cache is only an optimisation */ }

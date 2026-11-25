@@ -48,6 +48,7 @@ public partial class MainWindow : Window
 
         SourceInitialized += (_, _) => UseDarkTitleBar();
         Loaded += async (_, _) => await StartAsync();
+        Closing += (_, _) => StopDuplicatesAndSave();
         PreviewKeyDown += OnKey;
         MouseUp += OnWindowMouseUp;
     }
@@ -471,6 +472,12 @@ public partial class MainWindow : Window
 
         if (result.Outcome == DeleteOutcome.Deleted)
         {
+            // The chart is redrawn only after this, so it goes straight from before to after: the deleted item now
+            // counts in the Recycle Bin's folder, as a rescan would show it.
+            Mouse.OverrideCursor = Cursors.Wait;
+            try { await _scans.AfterDeleteAsync(s.Meta.Root); }
+            catch (Exception) { /* the delete itself worked; a rescan puts the numbers right */ }
+            finally { Mouse.OverrideCursor = null; }
             // Groups may name the deleted file: stop any search for this drive and search again (fast, from the hash cache).
             if (_dups.TryGetValue(s.Meta.Root, out var dupState)) dupState.Running?.Cancel();
             _dups.Remove(s.Meta.Root);

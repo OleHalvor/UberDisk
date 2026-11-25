@@ -38,9 +38,10 @@ public sealed record DriveMeta(
     {
         MediaKind.Hdd or MediaKind.Optical => 2,
         MediaKind.Network => 8,
-        // One thread per physical core. Measured on an 8-core / 16-thread PC, NVMe C: with 595k files:
-        // 8 threads 2.8 s, 16 threads 3.2 s, 4 threads 4.1 s. Hyperthreads add contention, not speed.
-        _ => Math.Clamp(CpuInfo.PhysicalCores, 4, 16),
+        // One and a half threads per physical core: opening folders waits on the file system as much as it uses the
+        // CPU. Measured on an 8-core / 16-thread PC, NVMe C: with 597k files and 197k folders, warm cache, three
+        // rounds: 8 threads 3.45 to 3.96 s, 12 threads 3.12 to 3.20 s, 16 threads 2.95 to 3.28 s (more variable).
+        _ => Math.Clamp(CpuInfo.PhysicalCores * 3 / 2, 4, 16),
     };
 
     public static IReadOnlyList<DriveMeta> List()
