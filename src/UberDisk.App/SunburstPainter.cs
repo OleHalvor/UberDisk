@@ -225,6 +225,55 @@ public sealed class SunburstPainter
     // Smooth mode: segment order by path. Live = from the previous frame of a running scan. Final = from the last
     // finished layout of this drive; a rescan keeps that order frozen, so nothing swaps places while it fills in.
     private Dictionary<string, int>? _liveRanks, _finalRanks;
+    private bool _wasLive;
+
+    // ---------- Order kept between runs ----------
+
+    private const int MaxSavedOrder = 50_000;
+
+    private static string OrderFile(DirNode root)
+    {
+        var name = new string(root.Name.Select(ch => char.IsLetterOrDigit(ch) ? ch : '_').ToArray()).Trim('_');
+        return System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "UberDisk", "order", (name.Length == 0 ? "root" : name) + ".txt");
+    }
+
+    /// <summary>Segment order (full paths, first = rank 0) of the last finished whole-drive layout, or null.</summary>
+    private static Dictionary<string, int>? LoadOrder(DirNode? root)
+    {
+        if (root == null) return null;
+        try
+        {
+            var file = OrderFile(root);
+            if (!System.IO.File.Exists(file)) return null;
+            var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            int n = 0;
+            foreach (var line in System.IO.File.ReadLines(file))
+            {
+                if (n >= MaxSavedOrder) break;
+                if (line.Length > 0) map.TryAdd(line, n++);
+            }
+            return map.Count > 0 ? map : null;
+        }
+        catch { return null; } // no saved order just means the first scan settles by itself
+    }
+
+    private static void SaveOrder(DirNode root, Dictionary<string, int> ranks)
+    {
+        var file = OrderFile(root);
+        var lines = ranks.OrderBy(kv => kv.Value).Take(MaxSavedOrder).Select(kv => kv.Key).ToList();
+        Task.Run(() =>
+        {
+            try
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file)!);
+                var tmp = file + ".tmp";
+                System.IO.File.WriteAllLines(tmp, lines);
+                System.IO.File.Move(tmp, file, overwrite: true);
+            }
+            catch { /* only a nicety */ }
+        });
+    }
     public DirNode? CenterNode => _center;
 
 
@@ -262,7 +311,13 @@ public sealed class SunburstPainter
 
         if (_layoutDirty || _layoutSize != (w, h))
         {
-            if ((_root?.Name ?? "") != _rootKey) _finalRanks = _liveRanks = null; // another drive
+            if ((_root?.Name ?? "") != _rootKey)
+            {
+                // Another drive (or start-up): begin with the order its last finished scan ended in, so a fresh
+                // scan fills in already in place instead of swapping folders round when it finishes.
+                _finalRanks = LoadOrder(_root);
+                _liveRanks = null;
+            }
             if (_dupMode) _dupResolvedFor = null; // the tree may have filled in since
             ResolveDuplicates();
             // Quick squeezes the live chart into the scanned share of the circle. The smooth styles keep the
@@ -272,14 +327,17 @@ public sealed class SunburstPainter
                 mustShow: DupActive ? n => _dupPaths.Contains(n) : null,
                 rankOf: Smooth && Live ? RankFunc() : null,
                 frozen: Smooth && Live && _finalRanks != null);
-            if (_layout != null && Live) _liveRanks = Smooth ? _layout.PathRanks() : null;
+            if (_layout != null && Live) _liveRanks = Smooth && _finalRanks == null ? _layout.PathRanks() : null;
             else if (_layout != null)
             {
                 // Merged, so zooming around keeps what is known about the rest of the drive.
                 _finalRanks ??= new(StringComparer.OrdinalIgnoreCase);
-                foreach (var (k, v) in _layout.PathRanks()) _finalRanks[k] = v;
+                var ranks = _layout.PathRanks();
+                foreach (var (k, v) in ranks) _finalRanks[k] = v;
                 _liveRanks = null;
+                if (_wasLive && _center == _root && _root != null) SaveOrder(_root, ranks);
             }
+            _wasLive = Live && _layout != null;
             _layoutSize = (w, h);
             _layoutDirty = false;
             if (Hover is { } hv) Hover = FindSegment(hv.Node);
@@ -356,8 +414,10 @@ public sealed class SunburstPainter
         var dupColors = new List<SKColor>();
         _maxChild.Clear();
 
-        // Outgoing segments first, so the ones growing in are drawn on top of them.
-        foreach (var an in _anims.Values.OrderBy(a => a.Alive))
+        // Outgoing segments first, so the ones growing in are drawn on top of them. When siblings trade places,
+        // the ones moving back (towards 12 o'clock) are drawn last, so a folder overtaking its neighbour slides
+        // over it as one piece, with its own subfolders, instead of the two subtrees interleaving.
+        foreach (var an in _anims.Values.OrderBy(a => a.Alive).ThenBy(a => a.VStart < -0.05 ? 1 : 0))
         {
             if (an.Sweep < 1e-5 || an.Grow < 0.01) continue;
             // Rings outside the chart (while zooming in) or inside the centre disc (zooming out) aren't drawn.
@@ -367,7 +427,7 @@ public sealed class SunburstPainter
             if (an.Start >= clip - 1e-6) continue;
             double sweep = Math.Min(an.Sweep, clip - an.Start);
             float r1 = (float)(RingInner(an.Ring) + 1);
-            float r2 = r1 + (float)((RingWidth(an.Ring) - 1) * an.Grow * _ringDepth[ri]);
+            float r2 = r1 + (float)((RingWidth(an.Ring) - 1) * (an.Fade ? 1 : an.Grow) * _ringDepth[ri]);
             if (r1 < _r0) r1 = (float)_r0;
             if (r2 <= r1 + 0.3f) continue;
 
@@ -395,7 +455,7 @@ public sealed class SunburstPainter
                 hoverAnim = an;
             }
             // Segments on their way out fade as they shrink.
-            if (!an.Alive) color = color.WithAlpha((byte)(255 * Math.Clamp(an.Grow, 0, 1)));
+            if (!an.Alive || an.Fade) color = color.WithAlpha((byte)(255 * Math.Clamp(an.Grow, 0, 1)));
             if (dup != null)
             {
                 // Drawn after everything else, so neighbouring segments never cover a widened copy.
@@ -729,12 +789,73 @@ public sealed class SunburstPainter
         public double TStart, TSweep, TRing, TGrow;
         public double VStart, VSweep, VRing, VGrow; // velocities, smooth mode only
         public bool Alive;
+        public bool Ghost; // left behind by a segment that jumped to a new place: fades out where it was
+        public bool Fade;  // Grow is drawn as opacity at full ring depth (a jump's cross-fade), not as depth
     }
 
     private readonly Dictionary<string, Anim> _anims = new();
     private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
     private double _lastFrame;
     private string? _rootKey;
+    private int _ghostId;
+
+    /// <summary>A sibling has to travel at least this far (radians) before it jumps instead of sliding.</summary>
+    private const double JumpDistance = 0.12;
+
+    /// <summary>
+    /// Finds siblings that trade places in the new layout. Of each pair that crosses, the one that travels farther
+    /// (usually the smaller one being overtaken) is returned: it fades out where it was and grows back in at its new
+    /// place, subtree and all, while the other slides over. Sliding both through each other opened gaps at both
+    /// ends of the pair and made the two subtrees cross, which read as the chart falling apart for a moment.
+    /// </summary>
+    private HashSet<string>? FindJumps(Dictionary<Node, string> keys, string centerKey)
+    {
+        if (!Smooth || !AnimationsEnabled || _layout == null) return null;
+        var groups = new Dictionary<string, List<(string key, double oldStart, double newStart)>>();
+        for (int ring = 1; ring <= _layout.RingCount; ring++)
+        {
+            foreach (var sg in _layout.Ring(ring))
+            {
+                string parentKey = sg.Node.Parent != null && keys.TryGetValue(sg.Node.Parent, out var pk) ? pk : centerKey;
+                string key = keys[sg.Node];
+                if (!_anims.TryGetValue(key, out var an) || !an.Alive || an.Grow < 0.5) continue;
+                if (!groups.TryGetValue(parentKey, out var list)) groups[parentKey] = list = new();
+                list.Add((key, an.TStart, sg.Start));
+            }
+        }
+        HashSet<string>? jumps = null;
+        foreach (var list in groups.Values)
+        {
+            if (list.Count < 2 || list.Count > 200) continue;
+            list.Sort((x, y) => x.oldStart.CompareTo(y.oldStart));
+            for (int i = 0; i < list.Count; i++)
+                for (int j = i + 1; j < list.Count; j++)
+                {
+                    if (list[i].newStart <= list[j].newStart + 1e-9) continue; // same order
+                    double ti = Math.Abs(list[i].newStart - list[i].oldStart);
+                    double tj = Math.Abs(list[j].newStart - list[j].oldStart);
+                    var far = ti >= tj ? list[i] : list[j];
+                    if (Math.Max(ti, tj) >= JumpDistance) (jumps ??= new()).Add(far.key);
+                }
+        }
+        return jumps;
+    }
+
+    /// <summary>Turns the segment at <paramref name="key"/> and everything under it into fading ghosts.</summary>
+    private void Ghost(string key)
+    {
+        string prefix = key + "\\";
+        var moved = _anims.Where(kv => !kv.Value.Ghost && (kv.Key == key || kv.Key.StartsWith(prefix, StringComparison.Ordinal))).ToList();
+        foreach (var (k, an) in moved)
+        {
+            _anims.Remove(k);
+            an.Ghost = true;
+            an.Fade = true;
+            an.Alive = false;
+            an.TStart = an.Start; an.TSweep = an.Sweep; an.TRing = an.Ring; an.TGrow = 0;
+            _anims[k + "|ghost" + (++_ghostId)] = an;
+        }
+    }
 
     /// <summary>Off: segments jump straight to their place (used for still previews).</summary>
     public bool AnimationsEnabled { get; set; } = true;
@@ -765,21 +886,30 @@ public sealed class SunburstPainter
             _rootKey = rootKey;
             _snapReveal = true;
         }
-        foreach (var an in _anims.Values) an.Alive = false;
-        if (_layout == null || _center == null) return;
+        if (_layout == null || _center == null)
+        {
+            foreach (var an in _anims.Values) an.Alive = false;
+            return;
+        }
 
         var keys = new Dictionary<Node, string>(ReferenceEqualityComparer.Instance);
         string centerKey = KeyOf(_center);
         int centerDepth = _center.Depth;
         keys[_center] = centerKey;
+        for (int ring = 1; ring <= _layout.RingCount; ring++)
+            foreach (var s in _layout.Ring(ring))
+                keys[s.Node] = (s.Node.Parent != null && keys.TryGetValue(s.Node.Parent, out var pk) ? pk : centerKey) + "\\" + s.Node.Name;
+
+        var jumps = FindJumps(keys, centerKey);
+        if (jumps != null) foreach (var k in jumps) Ghost(k);
+        foreach (var an in _anims.Values) an.Alive = false;
 
         for (int ring = 1; ring <= _layout.RingCount; ring++)
         {
             foreach (var s in _layout.Ring(ring))
             {
                 string parentKey = s.Node.Parent != null && keys.TryGetValue(s.Node.Parent, out var pk) ? pk : centerKey;
-                string key = parentKey + "\\" + s.Node.Name;
-                keys[s.Node] = key;
+                string key = keys[s.Node];
                 if (!_anims.TryGetValue(key, out var an))
                 {
                     an = new Anim
@@ -790,8 +920,16 @@ public sealed class SunburstPainter
                         Ring = ring,
                         Grow = 0,
                     };
+                    if (jumps != null && (jumps.Contains(key) || jumps.Contains(parentKey)))
+                    {
+                        // Jumped to a new place: grow outwards right there, at full width.
+                        jumps.Add(key);
+                        an.Start = s.Start;
+                        an.Sweep = s.Sweep;
+                        an.Fade = true;
+                    }
                     // If its parent is on screen, start out of the parent's arc so children fan out of it.
-                    if (s.Node.Parent != null && keys.TryGetValue(s.Node.Parent, out var ppk) && _anims.TryGetValue(ppk, out var pa) && pa.Sweep > 0)
+                    else if (s.Node.Parent != null && keys.TryGetValue(s.Node.Parent, out var ppk) && _anims.TryGetValue(ppk, out var pa) && pa.Sweep > 0)
                     {
                         an.Start = pa.Start + pa.Sweep / 2;
                         an.Ring = pa.Ring + 1; // ride along with a parent that is still sliding between rings
@@ -810,7 +948,7 @@ public sealed class SunburstPainter
 
         foreach (var (key, an) in _anims)
         {
-            if (an.Alive) continue;
+            if (an.Alive || an.Ghost) continue;
             // Gone (deleted, below the threshold, or outside the zoom): collapse and fade. If an ancestor is
             // still on screen, collapse at the matching spot of where that ancestor is going, so pieces move
             // with the chart (e.g. when a rescan sweep shrinks it) instead of being left behind where they were.
@@ -895,7 +1033,8 @@ public sealed class SunburstPainter
                     Spring(ref an.Start, ref an.VStart, an.TStart, w, h);
                     Spring(ref an.Sweep, ref an.VSweep, an.TSweep, w, h);
                     Spring(ref an.Ring, ref an.VRing, an.TRing, w, h);
-                    Spring(ref an.Grow, ref an.VGrow, an.TGrow, w, h);
+                    // A jump's ghost clears out quickly, so the cross-fade never shows two half-faded charts.
+                    Spring(ref an.Grow, ref an.VGrow, an.TGrow, an.Ghost ? w * 2.5 : w, h);
                 }
                 if (an.Sweep < 0) { an.Sweep = 0; an.VSweep = 0; }
                 an.Grow = Math.Clamp(an.Grow, 0, 1);
@@ -916,6 +1055,7 @@ public sealed class SunburstPainter
                 an.Start = an.TStart; an.Sweep = an.TSweep; an.Ring = an.TRing; an.Grow = an.TGrow;
                 an.VStart = an.VSweep = an.VRing = an.VGrow = 0;
                 if (!an.Alive) (dead ??= new()).Add(key);
+                else an.Fade = false;
             }
             else
             {
