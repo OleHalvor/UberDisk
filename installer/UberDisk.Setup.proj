@@ -1,0 +1,21 @@
+<!--
+  Builds dist\UberDisk-Setup.exe from dist\UberDisk\UberDisk.exe (build.cmd release runs this after publishing).
+  Inno Setup's compiler comes from the Tools.InnoSetup NuGet package, so nothing has to be installed first.
+  Not part of UberDisk.sln, so a normal build or test run doesn't touch it.
+-->
+<Project Sdk="Microsoft.Build.NoTargets/3.7.134">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <InnoSetupVersion>6.7.1</InnoSetupVersion>
+    <Iscc>$(NuGetPackageRoot)tools.innosetup\$(InnoSetupVersion)\tools\ISCC.exe</Iscc>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageDownload Include="Tools.InnoSetup" Version="[$(InnoSetupVersion)]" />
+  </ItemGroup>
+
+  <Target Name="BuildSetup" AfterTargets="Build">
+    <Error Condition="!Exists('$(Iscc)')" Text="Inno Setup's compiler isn't at $(Iscc)." />
+    <Exec Command="&quot;$(Iscc)&quot; /Qp &quot;$(MSBuildThisFileDirectory)UberDisk.iss&quot;" />
+  </Target>
+</Project>

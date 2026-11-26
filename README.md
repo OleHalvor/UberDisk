@@ -7,14 +7,22 @@ it shows a drive as a sunburst ("layered cake") so you can find what to delete.
 
 ## Download
 
-Get `UberDisk.exe` from the [latest release](../../releases/latest) and run it from anywhere; there is nothing to
-install. It is one self-contained file, so no .NET install is needed (the same file also comes zipped). The build is
-not code-signed, so Windows SmartScreen may warn the first time: choose "More info" then "Run anyway".
+The [latest release](../../releases/latest) has two downloads of the same program for Windows 10/11 x64. Neither
+needs admin rights or a .NET install.
+
+- **`UberDisk-Setup.exe`, the installer.** Installs for your Windows user only, into
+  `%LOCALAPPDATA%\Programs\UberDisk`, adds UberDisk to the Start menu (and, if you tick it, the desktop), and can be
+  removed again under Settings > Apps.
+- **`UberDisk.exe`, the portable version.** One self-contained file you run from anywhere; there is nothing to
+  install. To remove it, delete the file.
+
+The builds are not code-signed, so Windows SmartScreen may warn the first time: choose "More info" then "Run anyway".
 
 **Updates:** at startup UberDisk asks GitHub whether there is a newer release. If there is, a note in the drive rail
 offers **Install and restart**: it downloads the new `UberDisk.exe`, checks it against the SHA-256 GitHub lists for
-it, puts it in place of the old one and restarts. Nothing installs without that click. Click the version number at
-the bottom left to check now or to turn the startup check off.
+it, puts it in place of the old one and restarts, the same way for the installed and the portable copy. Nothing
+installs without that click. Click the version number at the bottom left to check now or to turn the startup check
+off.
 
 Settings and the window's size and position are kept in `%APPDATA%\UberDisk\settings.ini`. If UberDisk hits an error,
 the details go to `%LOCALAPPDATA%\UberDisk\crash.log`, and the error message offers to copy them and open a GitHub
@@ -26,7 +34,7 @@ You need the .NET 8 SDK or newer (`dotnet --version`). The app targets .NET 8 an
 
 ```
 build.cmd            :: builds Release into .\publish and starts UberDisk.exe
-build.cmd release    :: runs the tests, then builds the download into .\dist (UberDisk.exe and UberDisk-win-x64.zip)
+build.cmd release    :: runs the tests, then builds the downloads into .\dist (UberDisk\UberDisk.exe, UberDisk-Setup.exe)
 ```
 
 or by hand:
@@ -83,6 +91,8 @@ src/UberDisk.App          WPF shell (layout B) + SkiaSharp renderer
   MainWindow.xaml(.cs)               drive rail, top bar, breadcrumb, hover card, context menu, keys
   MainWindow.Update.cs               update check at startup, the update note in the rail, install and restart
 tests/UberDisk.Core.Tests xUnit tests for scanner, layout, queue, palette
+installer/                UberDisk.iss (Inno Setup, per-user, no admin) and UberDisk.Setup.proj, which fetches
+                          the Inno Setup compiler from NuGet and builds dist\UberDisk-Setup.exe
 tools/Preview             renders the chart to PNG headless (used to check the drawing without Windows)
 ```
 

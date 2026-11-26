@@ -79,6 +79,24 @@ public class UpdaterTests : IDisposable
     }
 
     [Fact]
+    public void PicksThePortableExeEvenWhenTheInstallerIsListedFirst()
+    {
+        // From 0.4.0 a release also carries UberDisk-Setup.exe. Installed and portable copies both update by
+        // swapping in UberDisk.exe, so the installer asset must never be picked.
+        var withSetup = Latest.Replace("""
+            { "name": "UberDisk-win-x64.zip",
+            """, """
+            { "name": "UberDisk-Setup.exe", "size": 3, "state": "uploaded", "digest": "sha256:11",
+              "browser_download_url": "https://github.com/OleHalvor/UberDisk/releases/download/v0.3.0/UberDisk-Setup.exe" },
+            { "name": "UberDisk-win-x64.zip",
+            """);
+        Assert.Contains("UberDisk-Setup.exe", withSetup);
+        var r = Updater.Parse(withSetup)!;
+        Assert.Equal("https://github.com/OleHalvor/UberDisk/releases/download/v0.3.0/UberDisk.exe", r.ExeUrl);
+        Assert.Equal(71030919, r.ExeSize);
+    }
+
+    [Fact]
     public void SwapPutsTheNewExeInPlaceAndKeepsTheOldAside()
     {
         string exe = Path.Combine(_dir, "UberDisk.exe"), dl = exe + Updater.DownloadSuffix;

@@ -32,7 +32,11 @@ public partial class MainWindow
     private void StartUpdateCheck()
     {
         if (Demo.On) return;
-        if (SelfExe is { } exe) _ = Updater.CleanupAsync(exe); // UberDisk.exe.old from the last update
+        if (SelfExe is { } exe)
+        {
+            _ = Updater.CleanupAsync(exe); // UberDisk.exe.old from the last update
+            SyncInstalledVersion(exe);
+        }
         if (!AppSettings.CheckUpdates) return;
         _ = Dispatcher.InvokeAsync(async () =>
         {
@@ -137,6 +141,25 @@ public partial class MainWindow
             MessageBox.Show($"UberDisk {release.Tag.TrimStart('v', 'V')} is installed, but didn't start: {ex.Message}\n\nStart it again from {exe}.",
                             "UberDisk", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    /// <summary>The uninstall entry UberDisk-Setup.exe writes (Inno Setup: AppId from installer\UberDisk.iss + "_is1").</summary>
+    private const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\{C58BCDC3-D240-45E9-9853-868DAF129E2A}_is1";
+
+    /// <summary>
+    /// An installed copy updates itself by swapping its exe, like the portable one, so the version that Settings &gt;
+    /// Apps shows would stay at the installed one. When this exe is the installed one, bring that entry up to date.
+    /// </summary>
+    private static void SyncInstalledVersion(string exe)
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(UninstallKey, writable: true);
+            if (key?.GetValue("InstallLocation") is not string dir) return;
+            if (!string.Equals(Path.GetFullPath(dir).TrimEnd('\\'), Path.GetDirectoryName(exe), StringComparison.OrdinalIgnoreCase)) return;
+            if (key.GetValue("DisplayVersion") as string != App.Version) key.SetValue("DisplayVersion", App.Version);
+        }
+        catch { /* only cosmetic */ }
     }
 
     private void UpdateLater_Click(object sender, RoutedEventArgs e) => UpdateBanner.Visibility = Visibility.Collapsed;
