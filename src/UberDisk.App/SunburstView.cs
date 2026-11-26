@@ -72,7 +72,7 @@ public sealed class SunburstView : SkiaCanvas
     /// <summary>True while the mouse is over the free-space arc.</summary>
     public bool HoverFree => _painter.HoverFree;
 
-    public ChartColors Colors
+    public SizeStyle Colors
     {
         get => _painter.Colors;
         set { _painter.Colors = value; InvalidateVisual(); }

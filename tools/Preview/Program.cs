@@ -6,6 +6,7 @@ using UberDisk.Core.Viz;
 
 if (args[0] == "--anim") { AnimDemo.Run(args[1], args[2]); return; }
 if (args[0] == "--dups") { DupDemo.Run(args[1], args[2], long.Parse(args[3])); return; }
+if (args[0] == "--palettes") { PaletteDemo.Run(args[1]); return; }
 if (args[0] == "--styles") { StyleDemo.Run(args[1], args[2]); return; }
 var root = ScanJob.ScanNow(args[0], "C:\\");
 var nav = new Navigator();
@@ -13,7 +14,7 @@ if (args.Length > 2 && args[2] != "") nav.Go(args[2].Split('/'));
 var center = nav.Resolve(root);
 
 var painter = new SunburstPainter { AnimationsEnabled = false };
-if (Environment.GetEnvironmentVariable("UD_COLORS") is { Length: > 0 } uc) painter.Colors = Enum.Parse<ChartColors>(uc, true);
+if (Environment.GetEnvironmentVariable("UD_COLORS") is { Length: > 0 } uc) painter.Colors = Enum.Parse<SizeStyle>(uc, true);
 if (Environment.GetEnvironmentVariable("UD_FREE") is { Length: > 0 } uf) painter.FreeFraction = double.Parse(uf, System.Globalization.CultureInfo.InvariantCulture);
 if (Environment.GetEnvironmentVariable("UD_RINGS") is { Length: > 0 } ur) painter.RingStyle = Enum.Parse<RingStyle>(ur, true);
 painter.Show(root, center);
@@ -155,6 +156,54 @@ static class DupDemo
         painter.SelectedGroup = result.Groups.Count > 1 ? result.Groups[1] : null;
         painter.Paint(s.Canvas, W, H);
         using var data = s.Snapshot().Encode(SKEncodedImageFormat.Png, 90);
+        File.WriteAllBytes(outPng, data.ToArray());
+    }
+}
+
+namespace UberDisk.App
+{
+    // The app's Demo switch lives in WPF code; the preview always counts as a demo (no order files written).
+    internal static class Demo { public static bool On => true; }
+}
+
+static class PaletteDemo
+{
+    // One row per size style on the made-up demo C: drive: the whole drive, one folder zoomed in, and the gradient.
+    public static void Run(string outPng)
+    {
+        const int W = 620, H = 520, Strip = 46;
+        var root = ScanJob.ScanNow("C:\\", "C:\\", new ScanOptions { Threads = 8, Reader = UberDisk.Core.Demo.DemoDisk.Reader });
+        var big = root.Children!.OfType<UberDisk.Core.Model.DirNode>().Where(d => !d.IsSynthetic).OrderByDescending(d => d.Size).First();
+        var styles = Enum.GetValues<SizeStyle>();
+        using var sheet = SKSurface.Create(new SKImageInfo(W * 2, (H + Strip) * styles.Length));
+        sheet.Canvas.Clear(new SKColor(0x16, 0x18, 0x1D));
+        using var font = new SKFont(SKTypeface.Default, 22);
+        using var text = new SKPaint { Color = new SKColor(0xF2, 0xF3, 0xF5), IsAntialias = true };
+        for (int row = 0; row < styles.Length; row++)
+        {
+            float y0 = row * (H + Strip);
+            for (int col = 0; col < 2; col++)
+            {
+                var center = col == 0 ? root : big;
+                var painter = new SunburstPainter { AnimationsEnabled = false, Colors = styles[row], RingStyle = RingStyle.Thinning };
+                painter.Show(root, center);
+                painter.CenterText = new CenterText(col == 0 ? null : "↑ Up to C:", center.Name.TrimEnd('\\'), Format.Bytes(center.Size), "");
+                using var s = SKSurface.Create(new SKImageInfo(W, H));
+                painter.Paint(s.Canvas, W, H);
+                using var img = s.Snapshot();
+                sheet.Canvas.DrawImage(img, col * W, y0 + Strip);
+            }
+            sheet.Canvas.DrawText(styles[row].ToString(), 24, y0 + 32, font, text);
+            // Gradient strip: small on the left, big on the right, inner ring colours.
+            for (int x = 0; x < 400; x++)
+            {
+                double t = x / 399.0;
+                var c = Palette.BySize(styles[row], t * t, 1, 7);
+                using var p = new SKPaint { Color = new SKColor(c.R, c.G, c.B) };
+                sheet.Canvas.DrawRect(180 + x, y0 + 14, 1, 22, p);
+            }
+        }
+        using var data = sheet.Snapshot().Encode(SKEncodedImageFormat.Png, 90);
         File.WriteAllBytes(outPng, data.ToArray());
     }
 }

@@ -104,7 +104,6 @@ public class ScannerTests
         Assert.Equal(expected, root.Size);
         Assert.Equal(200, root.FileCount);
         Assert.Equal(220, root.DirCount);
-        Assert.All(root.Children!.OfType<DirNode>(), d => Assert.True(d.HueSlot >= 0));
     }
 
     [Fact]

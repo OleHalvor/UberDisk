@@ -96,41 +96,23 @@ public class VizTests
         Assert.Equal(expected, Format.Bytes(bytes));
 
     [Fact]
-    public void Palette_keeps_hue_of_top_level_folder_and_lightens_with_depth()
+    public void Every_size_style_has_distinct_ends_and_fades_outwards()
     {
-        var root = Sample(out var t);
-        using var _ = t;
-        var big = root.FindChildDir("big")!;
-        var sub = big.FindChildDir("sub")!;
-        var c1 = Palette.For(big, 1);
-        var c2 = Palette.For(sub, 2);
-        Assert.NotEqual(c1, c2);
-        Assert.True(c2.R + c2.G + c2.B > c1.R + c1.G + c1.B);
+        foreach (var style in Enum.GetValues<SizeStyle>())
+        {
+            var small = Palette.BySize(style, 0, 1, 7);
+            var big = Palette.BySize(style, 1, 1, 7);
+            Assert.NotEqual(small, big);
+            Assert.Equal(big, Palette.BySize(style, 5, 1, 7)); // clamped
+            var outer = Palette.BySize(style, 1, 7, 7);
+            Assert.True(Spread(outer) < Spread(big), $"{style}: outer rings should be less colourful");
+        }
+        static int Spread(Argb c) => Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B));
     }
 }
 
-public class HueTests
+public class LayoutOrderTests
 {
-    [Fact]
-    public void First_scan_gives_biggest_folder_the_first_hue_and_rescans_keep_hues()
-    {
-        using var t = new TempTree().File("aaa/x", 4096).File("zzz/x", 409600).File("mmm/x", 40960);
-        var opts = new ScanOptions { Reader = new PortableDirectoryReader() };
-        var first = ScanJob.ScanNow(t.Root, options: opts);
-        Assert.Equal(0, first.FindChildDir("zzz")!.HueSlot);
-        Assert.Equal(1, first.FindChildDir("mmm")!.HueSlot);
-        Assert.Equal(2, first.FindChildDir("aaa")!.HueSlot);
-
-        // aaa grows past everything; a rescan with the old slots keeps its colour, a new folder gets a free slot.
-        File.WriteAllBytes(Path.Combine(t.Root, "aaa", "big"), new byte[4096 * 200]);
-        Directory.CreateDirectory(Path.Combine(t.Root, "bbb"));
-        var hints = first.Children!.OfType<DirNode>().ToDictionary(d => d.Name, d => d.HueSlot);
-        var again = ScanJob.ScanNow(t.Root, options: new ScanOptions { Reader = new PortableDirectoryReader(), HueSlots = hints });
-        Assert.Equal(2, again.FindChildDir("aaa")!.HueSlot);
-        Assert.Equal(0, again.FindChildDir("zzz")!.HueSlot);
-        Assert.Equal(3, again.FindChildDir("bbb")!.HueSlot);
-    }
-
     [Fact]
     public void Stable_layout_keeps_order_until_clearly_overtaken()
     {

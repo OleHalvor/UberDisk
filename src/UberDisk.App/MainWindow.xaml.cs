@@ -641,12 +641,7 @@ public partial class MainWindow : Window
         Chart.AnimationStyle = AppSettings.Animation;
         AnimToggle.Content = $"Animation: {AppSettings.Animation.ToString().ToLowerInvariant()}";
         Chart.Colors = AppSettings.Colors;
-        ColorToggle.Content = AppSettings.Colors switch
-        {
-            ChartColors.Size => "Colour: size",
-            ChartColors.View => "Colour: view",
-            _ => "Colour: folders",
-        };
+        ColorToggle.Content = $"Colour: {AppSettings.Colors.ToString().ToLowerInvariant()}";
         Chart.RingStyle = AppSettings.Rings;
         RingToggle.Content = AppSettings.Rings == RingStyle.Even ? "Rings: even" : "Rings: thin";
         FreeToggle.Content = AppSettings.ShowFree ? "Free space: shown" : "Free space: hidden";
@@ -658,7 +653,7 @@ public partial class MainWindow : Window
 
     private void ColorToggle_Click(object sender, RoutedEventArgs e)
     {
-        var all = Enum.GetValues<ChartColors>();
+        var all = Enum.GetValues<SizeStyle>();
         AppSettings.Colors = all[(Array.IndexOf(all, AppSettings.Colors) + 1) % all.Length];
         AppSettings.Save();
         ApplyAnimationSetting();

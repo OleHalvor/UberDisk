@@ -225,7 +225,7 @@
         <StackPanel x:Name="Toggles" Grid.Column="2" Orientation="Horizontal" Margin="14,0,0,0">
           <Button x:Name="ColorToggle" Margin="0,0,14,0" Style="{StaticResource CrumbButton}" FontSize="11.5"
                   Foreground="{StaticResource TextFaint}" Click="ColorToggle_Click"
-                  ToolTip="Click to switch colouring. Size: red for the biggest item in each folder, towards yellow for smaller ones (like OverDisk). View: red only for items big in the whole view. Folders: one colour per top-level folder." />
+                  ToolTip="Colour shows size: the biggest item in each folder gets the strongest colour. Click to switch between colour styles (ember, ocean, aurora, sunset)." />
           <Button x:Name="FreeToggle" Margin="0,0,14,0" Style="{StaticResource CrumbButton}" FontSize="11.5"
                   Foreground="{StaticResource TextFaint}" Click="FreeToggle_Click"
                   ToolTip="Click to show or hide free space. Shown: the drive view leaves the free part of the disk empty, so every slice is sized against the whole disk. Hidden: slices share the used space." />

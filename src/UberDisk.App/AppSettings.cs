@@ -1,4 +1,5 @@
 using System.IO;
+using UberDisk.Core.Viz;
 
 namespace UberDisk.App;
 
@@ -11,8 +12,8 @@ internal static class AppSettings
     /// <summary>How scans of the whole drive are animated.</summary>
     public static ScanAnimation Animation { get; set; } = ScanAnimation.Spiral;
 
-    /// <summary>How the chart is coloured.</summary>
-    public static ChartColors Colors { get; set; } = ChartColors.Size;
+    /// <summary>Gradient for the size colouring.</summary>
+    public static SizeStyle Colors { get; set; } = SizeStyle.Ember;
 
     /// <summary>Drive view: leave the free share of the disk empty, so slices are sized against the whole disk.</summary>
     public static bool ShowFree { get; set; } = true;
@@ -50,7 +51,7 @@ internal static class AppSettings
                 var value = line[(eq + 1)..].Trim();
                 if (key.Equals("duplicates-min-size", StringComparison.OrdinalIgnoreCase) && long.TryParse(value, out var min) && min > 0)
                     DuplicateMinSize = min;
-                if (key.Equals("colors", StringComparison.OrdinalIgnoreCase) && Enum.TryParse<ChartColors>(value, true, out var c)) Colors = c;
+                if (key.Equals("colors", StringComparison.OrdinalIgnoreCase) && Enum.TryParse<SizeStyle>(value, true, out var c)) Colors = c;
                 if (key.Equals("defaults", StringComparison.OrdinalIgnoreCase) && int.TryParse(value, out var dv)) defaults = dv;
                 if (key.Equals("free-space", StringComparison.OrdinalIgnoreCase) && bool.TryParse(value, out var fr)) ShowFree = fr;
                 if (key.Equals("window", StringComparison.OrdinalIgnoreCase)) Window = WindowPlace.Parse(value) ?? Window;
@@ -64,7 +65,6 @@ internal static class AppSettings
             // Settings saved before the defaults changed (size colours, free space, thin rings, spiral).
             if (defaults < CurrentDefaults)
             {
-                Colors = ChartColors.Size;
                 ShowFree = true;
                 Rings = RingStyle.Thinning;
                 Animation = ScanAnimation.Spiral;

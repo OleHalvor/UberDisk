@@ -56,7 +56,7 @@ No admin rights are needed. Run as administrator only if you want the "Unscanned
   item in the drive's $Recycle.Bin folder, where it still takes up space until the Recycle Bin is emptied.
 - **Rescan / F5** rescans the current drive and turns into **Stop** while it runs. Stopping a rescan brings back the
   previous result.
-- **Footer toggles:** *Colour* (size: biggest siblings are red, small ones yellow; view; folders), *Free space*
+- **Footer toggles:** *Colour* (colour always shows size, the biggest item in each folder strongest; the toggle picks the style: ember, ocean, aurora or sunset), *Free space*
   (shown: the circle is the whole disk, with free space as a dark arc), *Rings* (thin: deeper rings get thinner so each
   ring has the same area; even) and the scan animation.
 - **Duplicates:** after each scan UberDisk looks for identical large files (same length and same SHA-256 of the whole

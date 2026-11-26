@@ -20,12 +20,6 @@ public sealed class ScanOptions
 
     /// <summary>Folder names below the root to read first (the folder the user is zoomed into).</summary>
     public IReadOnlyList<string>? PriorityPath { get; init; }
-
-    /// <summary>
-    /// Colour slots of the top-level folders from the previous scan, by name. A rescan reuses them so colours
-    /// don't change. Without them, slots are given by size once the scan finishes (biggest folder = first hue).
-    /// </summary>
-    public IReadOnlyDictionary<string, int>? HueSlots { get; init; }
 }
 
 /// <summary>
@@ -221,23 +215,6 @@ public sealed class ScanJob
             children.Add(new FileNode($"{restCount:N0} smaller files", node, rest, restCount, aggregate: true));
         }
 
-        if (node.Parent == null)
-        {
-            // Top-level folders get their colour slot now, so colours stay put while the scan runs: the
-            // previous scan's slot if there was one, otherwise the next free slot in listing order.
-            var hints = _options.HueSlots;
-            var used = new HashSet<int>(hints?.Values ?? Enumerable.Empty<int>());
-            int next = 0;
-            foreach (var c in children)
-            {
-                if (c is not DirNode d) continue;
-                if (hints != null && hints.TryGetValue(d.Name, out int s)) { d.HueSlot = s; continue; }
-                while (used.Contains(next)) next++;
-                d.HueSlot = next;
-                used.Add(next);
-            }
-        }
-
         node.PublishChildren(children.ToArray());
         node.AddUp(fileBytes, files.Count, subdirs.Count);
 
@@ -255,22 +232,10 @@ public sealed class ScanJob
             Enqueue(subdirs[i].Item1, subdirs[i].Item2, i == first ? prio + 1 : childPrio);
     }
 
-    /// <summary>First scan of a drive: biggest top-level folder gets the first hue (red), then orange, blue, ...</summary>
-    internal static void AssignHuesBySize(DirNode root)
-    {
-        int slot = 0;
-        foreach (var c in root.Children ?? Array.Empty<Node>())
-            if (c is DirNode d) d.HueSlot = slot++;
-    }
-
     private void Finish()
     {
         _clock.Stop();
-        if (!_cts.IsCancellationRequested)
-        {
-            Root.SortDeep();
-            if (_options.HueSlots == null) AssignHuesBySize(Root);
-        }
+        if (!_cts.IsCancellationRequested) Root.SortDeep();
         _done.TrySetResult(this);
     }
 }

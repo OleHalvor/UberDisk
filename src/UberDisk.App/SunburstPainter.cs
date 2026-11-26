@@ -183,8 +183,8 @@ public sealed class SunburstPainter
     /// <summary>How a scan of the whole drive is shown. See <see cref="ScanAnimation"/>.</summary>
     public ScanAnimation Style { get; set; } = ScanAnimation.Sweep;
 
-    /// <summary>How segments are coloured. See <see cref="ChartColors"/>.</summary>
-    public ChartColors Colors { get; set; } = ChartColors.Size;
+    /// <summary>Gradient for the size colouring. See <see cref="SizeStyle"/>.</summary>
+    public SizeStyle Colors { get; set; } = SizeStyle.Ember;
 
     /// <summary>Ring thickness: even, or OverDisk's equal-area rings that get thinner further out.</summary>
     public RingStyle RingStyle { get; set; } = RingStyle.Even;
@@ -192,27 +192,18 @@ public sealed class SunburstPainter
     // Size colouring: the biggest child of each folder, cached for one frame.
     private readonly Dictionary<DirNode, long> _maxChild = new(ReferenceEqualityComparer.Instance);
 
-    private Argb ColorOf(Node node, int absDepth, int ring)
+    // Red for the biggest item in each folder, like OverDisk; only the gradient changes with the setting.
+    private Argb ColorOf(Node node, int ring)
     {
-        if (Colors == ChartColors.Folders || node is DirNode { IsSynthetic: true }) return Palette.For(node, absDepth);
-        double t;
-        if (Colors == ChartColors.View)
+        if (node is DirNode { IsSynthetic: true }) return Palette.Synthetic;
+        long max = 0;
+        if (node.Parent is { } parent && !_maxChild.TryGetValue(parent, out max))
         {
-            long total = _center?.Size ?? 0;
-            // Logarithmic: the whole view is red, 10 % of it two thirds of the way, 0.1 % and below yellow.
-            t = total > 0 && node.Size > 0 ? 1 + Math.Log10((double)node.Size / total) / 3 : 0;
+            foreach (var c in parent.Children ?? Array.Empty<Node>()) max = Math.Max(max, c.Size);
+            _maxChild[parent] = max;
         }
-        else
-        {
-            long max = 0;
-            if (node.Parent is { } parent && !_maxChild.TryGetValue(parent, out max))
-            {
-                foreach (var c in parent.Children ?? Array.Empty<Node>()) max = Math.Max(max, c.Size);
-                _maxChild[parent] = max;
-            }
-            t = max > 0 ? (double)node.Size / max : 1;
-        }
-        return Palette.BySize(t, ring, Rings);
+        double t = max > 0 ? (double)node.Size / max : 1;
+        return Palette.BySize(Colors, t, ring, Rings);
     }
 
     // Reveal progress (0..1) actually shown, on its own spring, so a jump in the target (a rescan starting:
@@ -432,7 +423,7 @@ public sealed class SunburstPainter
             if (r1 < _r0) r1 = (float)_r0;
             if (r2 <= r1 + 0.3f) continue;
 
-            var argb = ColorOf(an.Node, an.AbsDepth, ri);
+            var argb = ColorOf(an.Node, ri);
             var color = new SKColor(argb.R, argb.G, argb.B);
             double start = an.Start;
             DuplicateGroup? dup = null;
@@ -1215,18 +1206,6 @@ public sealed class SunburstPainter
     }
 }
 
-/// <summary>How a scan of the whole drive is animated. All but Quick reveal the chart calmly.</summary>
-/// <summary>How the chart is coloured.</summary>
-public enum ChartColors
-{
-    /// <summary>OverDisk's size colouring: red for the biggest item in each folder, towards yellow for smaller ones.</summary>
-    Size,
-    /// <summary>Like Size, but against the whole view: only items big on screen are red.</summary>
-    View,
-    /// <summary>Each top-level folder keeps its own hue.</summary>
-    Folders,
-}
-
 /// <summary>Ring thickness.</summary>
 public enum RingStyle
 {
@@ -1236,6 +1215,7 @@ public enum RingStyle
     Thinning,
 }
 
+/// <summary>How a scan of the whole drive is animated. All but Quick reveal the chart calmly.</summary>
 public enum ScanAnimation
 {
     /// <summary>One clockwise sweep from 12 o'clock, rings growing outwards as it goes.</summary>

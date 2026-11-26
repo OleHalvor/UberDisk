@@ -109,9 +109,6 @@ public sealed class DirNode : Node
     /// <summary>True when the children are final and sorted by size, largest first.</summary>
     public bool Sorted { get; internal set; }
 
-    /// <summary>Palette slot for top-level folders, assigned by the scanner. -1 elsewhere.</summary>
-    public int HueSlot { get; internal set; } = -1;
-
     /// <summary>Synthetic node, such as "space the scan could not see". Not a real folder.</summary>
     public bool IsSynthetic { get; internal set; }
 
@@ -166,7 +163,6 @@ public sealed class DirNode : Node
         int i = Array.IndexOf(copy, oldChild);
         if (i < 0) throw new ArgumentException("Not a child of this folder.", nameof(oldChild));
         newChild.Parent = this;
-        newChild.HueSlot = oldChild.HueSlot;
         copy[i] = newChild;
         Array.Sort(copy, BySizeDesc.Instance);
         PublishChildren(copy);

@@ -285,15 +285,13 @@ public sealed class ScanCoordinator
         RefreshMeta(s);
         var root = new DirNode(s.Meta.Root, null);
         var options = _optionsFor(s.Meta);
-        var hues = HueSlotsOf(s.Tree) ?? HueSlotsOf(s.LastCompleteTree);
-        if (hues != null || priorityPath != null)
+        if (priorityPath != null)
             options = new ScanOptions
             {
                 Threads = options.Threads,
                 MaxFilesPerFolder = options.MaxFilesPerFolder,
                 Reader = options.Reader,
-                HueSlots = hues ?? options.HueSlots,
-                PriorityPath = priorityPath ?? options.PriorityPath,
+                PriorityPath = priorityPath,
             };
         var job = new ScanJob(root, s.Meta.Root, options) { Background = background };
         if (s.State == ScanState.Done) s.LastCompleteTree = s.Tree;
@@ -303,15 +301,6 @@ public sealed class ScanCoordinator
         job.Completion.ContinueWith(_ => OnFinished(s, job), TaskScheduler.Default);
         job.Start();
         Changed?.Invoke(s);
-    }
-
-    private static Dictionary<string, int>? HueSlotsOf(DirNode? tree)
-    {
-        if (tree?.Children == null) return null;
-        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var c in tree.Children)
-            if (c is DirNode { IsSynthetic: false, HueSlot: >= 0 } d) map[d.Name] = d.HueSlot;
-        return map.Count > 0 ? map : null;
     }
 
     private void StopLocked(DriveSession s, bool keepTree)
