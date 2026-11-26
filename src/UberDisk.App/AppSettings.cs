@@ -23,6 +23,9 @@ internal static class AppSettings
     /// <summary>Smallest file the duplicate finder looks at.</summary>
     public static long DuplicateMinSize { get; set; } = 500L * 1024 * 1024;
 
+    /// <summary>Last window position and size in WPF units, and whether it was maximized; null until the first close.</summary>
+    public static WindowPlace? Window { get; set; }
+
     /// <summary>Bumped when the defaults change, so older settings files take the new defaults once.</summary>
     private const int CurrentDefaults = 2;
 
@@ -44,6 +47,7 @@ internal static class AppSettings
                 if (key.Equals("colors", StringComparison.OrdinalIgnoreCase) && Enum.TryParse<ChartColors>(value, true, out var c)) Colors = c;
                 if (key.Equals("defaults", StringComparison.OrdinalIgnoreCase) && int.TryParse(value, out var dv)) defaults = dv;
                 if (key.Equals("free-space", StringComparison.OrdinalIgnoreCase) && bool.TryParse(value, out var fr)) ShowFree = fr;
+                if (key.Equals("window", StringComparison.OrdinalIgnoreCase)) Window = WindowPlace.Parse(value) ?? Window;
                 if (key.Equals("rings", StringComparison.OrdinalIgnoreCase) && Enum.TryParse<RingStyle>(value, true, out var r)) Rings = r;
                 if (!key.Equals("animation", StringComparison.OrdinalIgnoreCase)) continue;
                 if (Enum.TryParse<ScanAnimation>(value, ignoreCase: true, out var a)) Animation = a;
@@ -68,8 +72,29 @@ internal static class AppSettings
         {
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
             File.WriteAllText(FilePath, $"animation={Animation.ToString().ToLowerInvariant()}\r\nduplicates-min-size={DuplicateMinSize}\r\n" +
-                $"colors={Colors.ToString().ToLowerInvariant()}\r\nrings={Rings.ToString().ToLowerInvariant()}\r\nfree-space={ShowFree.ToString().ToLowerInvariant()}\r\ndefaults={CurrentDefaults}\r\n");
+                $"colors={Colors.ToString().ToLowerInvariant()}\r\nrings={Rings.ToString().ToLowerInvariant()}\r\nfree-space={ShowFree.ToString().ToLowerInvariant()}\r\n" +
+                (Window is { } w ? $"window={w}\r\n" : "") + $"defaults={CurrentDefaults}\r\n");
         }
         catch { /* not worth bothering the user about */ }
+    }
+}
+
+/// <summary>Where the main window was: left, top, width and height in WPF units, then 1 if maximized.</summary>
+internal sealed record WindowPlace(double Left, double Top, double Width, double Height, bool Maximized)
+{
+    private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
+
+    public override string ToString() =>
+        string.Join(",", new[] { Left, Top, Width, Height }.Select(v => Math.Round(v).ToString(Inv))) + (Maximized ? ",1" : ",0");
+
+    public static WindowPlace? Parse(string value)
+    {
+        var p = value.Split(',');
+        if (p.Length != 5) return null;
+        var n = new double[4];
+        for (int i = 0; i < 4; i++)
+            if (!double.TryParse(p[i], System.Globalization.NumberStyles.Float, Inv, out n[i]) || !double.IsFinite(n[i])) return null;
+        if (n[2] < 100 || n[3] < 100) return null;
+        return new WindowPlace(n[0], n[1], n[2], n[3], p[4].Trim() == "1");
     }
 }

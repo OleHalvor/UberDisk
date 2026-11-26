@@ -17,9 +17,13 @@ _The screenshots use made-up drives: `UberDisk.exe --demo` shows them instead of
 
 ## Download
 
-Get `UberDisk-win-x64.zip` from the [latest release](../../releases/latest), unzip it anywhere and run `UberDisk.exe`.
-It is self-contained, so no .NET install is needed. The build is not code-signed, so Windows SmartScreen may warn the
-first time: choose "More info" then "Run anyway".
+Get `UberDisk.exe` from the [latest release](../../releases/latest) and run it from anywhere; there is nothing to
+install. It is one self-contained file, so no .NET install is needed (the same file also comes zipped). The build is
+not code-signed, so Windows SmartScreen may warn the first time: choose "More info" then "Run anyway".
+
+Settings and the window's size and position are kept in `%APPDATA%\UberDisk\settings.ini`. If UberDisk hits an error,
+the details go to `%LOCALAPPDATA%\UberDisk\crash.log`, and the error message offers to copy them and open a GitHub
+issue.
 
 ## Build and run
 
@@ -27,6 +31,7 @@ You need the .NET 8 SDK or newer (`dotnet --version`). The app targets .NET 8 an
 
 ```
 build.cmd            :: builds Release into .\publish and starts UberDisk.exe
+build.cmd release    :: runs the tests, then builds the download into .\dist (UberDisk.exe and UberDisk-win-x64.zip)
 ```
 
 or by hand:

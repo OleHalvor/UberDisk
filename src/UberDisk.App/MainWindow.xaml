@@ -18,7 +18,12 @@
       <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="DRIVES" Margin="16,18,16,10" FontSize="11.5"
                    Foreground="{StaticResource TextDim}" FontWeight="SemiBold" />
-        <TextBlock x:Name="RailStatus" DockPanel.Dock="Bottom" Margin="16,8,16,14" FontSize="11.5"
+        <Button DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="8,0,16,8" Padding="8,3" Style="{StaticResource CrumbButton}"
+                FontSize="11" Foreground="{StaticResource TextFaint}" Click="Version_Click"
+                ToolTip="Open UberDisk's releases on GitHub (new versions and release notes)">
+          <TextBlock x:Name="VersionText" />
+        </Button>
+        <TextBlock x:Name="RailStatus" DockPanel.Dock="Bottom" Margin="16,8,16,6" FontSize="11.5"
                    Foreground="{StaticResource TextFaint}" TextWrapping="Wrap" />
         <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
           <ItemsControl x:Name="DriveList" Margin="14,0,14,8" Focusable="False">

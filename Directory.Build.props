@@ -1,0 +1,9 @@
+<Project>
+  <!-- Release download (build.cmd release): no debug files, and no build-machine folder names inside the binaries. -->
+  <PropertyGroup Condition="'$(UberDiskRelease)' == 'true'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <PathMap>$(MSBuildThisFileDirectory)=/UberDisk/</PathMap>
+  </PropertyGroup>
+</Project>

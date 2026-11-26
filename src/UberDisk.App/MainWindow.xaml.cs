@@ -35,6 +35,8 @@ public partial class MainWindow : Window
         Chart.CenterClicked += () => Nav?.Up();
         Chart.HoverChanged += OnHoverChanged;
         AppSettings.Load();
+        RestorePlacement();
+        VersionText.Text = $"UberDisk {App.Version}";
         ApplyAnimationSetting();
         Chart.ContextRequested += OnContextRequested;
         Chart.BackRequested += () => Nav?.Back();
@@ -49,7 +51,7 @@ public partial class MainWindow : Window
 
         SourceInitialized += (_, _) => UseDarkTitleBar();
         Loaded += async (_, _) => await StartAsync();
-        Closing += (_, _) => StopDuplicatesAndSave();
+        Closing += (_, _) => { StopDuplicatesAndSave(); SavePlacement(); };
         PreviewKeyDown += OnKey;
         MouseUp += OnWindowMouseUp;
     }
@@ -687,6 +689,32 @@ public partial class MainWindow : Window
     }
 
     // ======================= Window chrome =======================
+
+    /// <summary>Opens where the window was last closed, if that spot is still on a screen.</summary>
+    private void RestorePlacement()
+    {
+        if (Demo.On || AppSettings.Window is not { } w) return;
+        double w2 = Math.Max(w.Width, MinWidth), h2 = Math.Max(w.Height, MinHeight);
+        // At least a grabbable strip of the title bar must be on the desktop (a monitor may be gone).
+        var screen = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                              SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+        var titleBar = new Rect(w.Left + 40, w.Top, Math.Max(w2 - 80, 1), 30);
+        if (!screen.IntersectsWith(titleBar)) return;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Left = w.Left; Top = w.Top; Width = w2; Height = h2;
+        if (w.Maximized) WindowState = WindowState.Maximized;
+    }
+
+    private void SavePlacement()
+    {
+        if (Demo.On) return;
+        var r = WindowState == WindowState.Normal ? new Rect(Left, Top, ActualWidth, ActualHeight) : RestoreBounds;
+        if (r.IsEmpty || r.Width < 100 || r.Height < 100) return;
+        AppSettings.Window = new WindowPlace(r.Left, r.Top, r.Width, r.Height, WindowState == WindowState.Maximized);
+        AppSettings.Save();
+    }
+
+    private void Version_Click(object sender, RoutedEventArgs e) => App.OpenUrl(App.RepoUrl + "/releases");
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);

@@ -12,8 +12,17 @@
     <RootNamespace>UberDisk.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\UberDisk.ico</ApplicationIcon>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>UberDisk</Product>
+    <AssemblyTitle>UberDisk disk space viewer</AssemblyTitle>
+    <Description>Shows a drive as a sunburst so you can see what takes up the space.</Description>
+    <Company>OleHalvor</Company>
+    <Authors>OleHalvor</Authors>
+    <Copyright>Copyright (c) 2026 OleHalvor. MIT licence.</Copyright>
+    <RepositoryUrl>https://github.com/OleHalvor/UberDisk</RepositoryUrl>
+    <!-- WPF ships translations of its own messages for 13 languages; the app is English only. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <!-- Lets the project compile on non-Windows build machines too (it still only runs on Windows). -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -24,6 +33,25 @@
     <!-- Runs on .NET 8 or any newer runtime that is installed. -->
     <RollForward>Major</RollForward>
   </PropertyGroup>
+
+  <!--
+    The download on GitHub: build.cmd release (or dotnet publish -c Release -p:UberDiskRelease=true).
+    One self-contained, compressed UberDisk.exe that needs no .NET install. Directory.Build.props drops the
+    .pdb files and the build machine's folder names for every project in that build.
+  -->
+  <PropertyGroup Condition="'$(UberDiskRelease)' == 'true'">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <!-- SkiaSharp's NuGet package carries an 84 MB native .pdb; leave every .pdb out of the release. -->
+  <Target Name="DropPdbsFromRelease" AfterTargets="ComputeResolvedFilesToPublishList" Condition="'$(UberDiskRelease)' == 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="3.119.4" />
