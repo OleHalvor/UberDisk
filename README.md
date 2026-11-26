@@ -3,6 +3,18 @@
 A modern, trimmed-down take on OverDisk v0.11 (2005) for Windows 10/11 with SSDs. It does one thing:
 it shows a drive as a sunburst ("layered cake") so you can find what to delete.
 
+![UberDisk showing a drive as a sunburst, hovering the biggest folder](docs/screenshots/drive.png)
+
+| Zoomed into a folder | Duplicates view |
+|---|---|
+| ![Zoomed into a user folder](docs/screenshots/zoom.png) | ![Identical files highlighted on the chart, with the groups listed on the right](docs/screenshots/duplicates.png) |
+
+| Scanning (the chart fills in live) |
+|---|
+| ![A scan halfway through](docs/screenshots/scanning.png) |
+
+_The screenshots use made-up drives: `UberDisk.exe --demo` shows them instead of your own, and `--demo --shots <folder>` saves these pictures._
+
 ## Download
 
 Get `UberDisk-win-x64.zip` from the [latest release](../../releases/latest), unzip it anywhere and run `UberDisk.exe`.
