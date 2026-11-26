@@ -20,9 +20,33 @@
                    Foreground="{StaticResource TextDim}" FontWeight="SemiBold" />
         <Button DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="8,0,16,8" Padding="8,3" Style="{StaticResource CrumbButton}"
                 FontSize="11" Foreground="{StaticResource TextFaint}" Click="Version_Click"
-                ToolTip="Open UberDisk's releases on GitHub (new versions and release notes)">
+                ToolTip="Updates and release notes">
           <TextBlock x:Name="VersionText" />
         </Button>
+        <!-- Shown when GitHub has a newer release. -->
+        <Border x:Name="UpdateBanner" DockPanel.Dock="Bottom" Visibility="Collapsed" Margin="14,6,14,6" Padding="12,10,12,10"
+                CornerRadius="7" Background="#1E2433" BorderBrush="{StaticResource Accent}" BorderThickness="1">
+          <StackPanel>
+            <TextBlock x:Name="UpdateTitle" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock x:Name="UpdateDetail" Margin="0,3,0,0" FontSize="12" Foreground="{StaticResource TextDim}" TextWrapping="Wrap" />
+            <Grid x:Name="UpdateProgress" Height="4" Margin="0,8,0,0" Visibility="Collapsed">
+              <Border Background="{StaticResource BarTrack}" CornerRadius="2" />
+              <Border x:Name="UpdateProgressFill" Background="{StaticResource BarBlue}" CornerRadius="2" HorizontalAlignment="Left" Width="0" />
+            </Grid>
+            <StackPanel x:Name="UpdateButtons" Orientation="Horizontal" Margin="0,9,0,0">
+              <Button x:Name="UpdateInstallBtn" Style="{StaticResource PrimaryButton}" Height="28" FontSize="12.5" Padding="12,0"
+                      Click="UpdateInstall_Click" />
+              <Button Style="{StaticResource CrumbButton}" FontSize="12" Padding="8,3" Margin="6,0,0,0" Content="Later"
+                      Click="UpdateLater_Click" ToolTip="Hide this until UberDisk starts again" />
+            </StackPanel>
+            <StackPanel x:Name="UpdateLinks" Orientation="Horizontal" Margin="-6,4,0,-3">
+              <Button Style="{StaticResource CrumbButton}" FontSize="11.5" Padding="6,2" Foreground="{StaticResource TextFaint}"
+                      Content="What's new" Click="UpdateNotes_Click" ToolTip="Open the release notes on GitHub" />
+              <Button Style="{StaticResource CrumbButton}" FontSize="11.5" Padding="6,2" Foreground="{StaticResource TextFaint}"
+                      Content="Skip this version" Click="UpdateSkip_Click" ToolTip="Don't mention this version again at startup" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
         <TextBlock x:Name="RailStatus" DockPanel.Dock="Bottom" Margin="16,8,16,6" FontSize="11.5"
                    Foreground="{StaticResource TextFaint}" TextWrapping="Wrap" />
         <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">

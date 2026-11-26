@@ -26,6 +26,12 @@ internal static class AppSettings
     /// <summary>Last window position and size in WPF units, and whether it was maximized; null until the first close.</summary>
     public static WindowPlace? Window { get; set; }
 
+    /// <summary>Look for a newer release on GitHub at startup.</summary>
+    public static bool CheckUpdates { get; set; } = true;
+
+    /// <summary>A release tag the user chose to skip, so the startup check stays quiet about it.</summary>
+    public static string? SkipVersion { get; set; }
+
     /// <summary>Bumped when the defaults change, so older settings files take the new defaults once.</summary>
     private const int CurrentDefaults = 2;
 
@@ -48,6 +54,8 @@ internal static class AppSettings
                 if (key.Equals("defaults", StringComparison.OrdinalIgnoreCase) && int.TryParse(value, out var dv)) defaults = dv;
                 if (key.Equals("free-space", StringComparison.OrdinalIgnoreCase) && bool.TryParse(value, out var fr)) ShowFree = fr;
                 if (key.Equals("window", StringComparison.OrdinalIgnoreCase)) Window = WindowPlace.Parse(value) ?? Window;
+                if (key.Equals("check-updates", StringComparison.OrdinalIgnoreCase) && bool.TryParse(value, out var cu)) CheckUpdates = cu;
+                if (key.Equals("skip-version", StringComparison.OrdinalIgnoreCase)) SkipVersion = value.Length > 0 ? value : null;
                 if (key.Equals("rings", StringComparison.OrdinalIgnoreCase) && Enum.TryParse<RingStyle>(value, true, out var r)) Rings = r;
                 if (!key.Equals("animation", StringComparison.OrdinalIgnoreCase)) continue;
                 if (Enum.TryParse<ScanAnimation>(value, ignoreCase: true, out var a)) Animation = a;
@@ -73,6 +81,7 @@ internal static class AppSettings
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
             File.WriteAllText(FilePath, $"animation={Animation.ToString().ToLowerInvariant()}\r\nduplicates-min-size={DuplicateMinSize}\r\n" +
                 $"colors={Colors.ToString().ToLowerInvariant()}\r\nrings={Rings.ToString().ToLowerInvariant()}\r\nfree-space={ShowFree.ToString().ToLowerInvariant()}\r\n" +
+                $"check-updates={CheckUpdates.ToString().ToLowerInvariant()}\r\n" + (SkipVersion is { } sv ? $"skip-version={sv}\r\n" : "") +
                 (Window is { } w ? $"window={w}\r\n" : "") + $"defaults={CurrentDefaults}\r\n");
         }
         catch { /* not worth bothering the user about */ }

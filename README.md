@@ -21,6 +21,11 @@ Get `UberDisk.exe` from the [latest release](../../releases/latest) and run it f
 install. It is one self-contained file, so no .NET install is needed (the same file also comes zipped). The build is
 not code-signed, so Windows SmartScreen may warn the first time: choose "More info" then "Run anyway".
 
+**Updates:** at startup UberDisk asks GitHub whether there is a newer release. If there is, a note in the drive rail
+offers **Install and restart**: it downloads the new `UberDisk.exe`, checks it against the SHA-256 GitHub lists for
+it, puts it in place of the old one and restarts. Nothing installs without that click. Click the version number at
+the bottom left to check now or to turn the startup check off.
+
 Settings and the window's size and position are kept in `%APPDATA%\UberDisk\settings.ini`. If UberDisk hits an error,
 the details go to `%LOCALAPPDATA%\UberDisk\crash.log`, and the error message offers to copy them and open a GitHub
 issue.
@@ -82,9 +87,11 @@ src/UberDisk.Core         no UI; unit-tested on any OS
   Viz/SunburstLayout.cs              OverDisk's pie geometry: 12 o'clock start, clockwise, by size, 3 px threshold
   Viz/Palette.cs                     mockup A palette: hue per top-level folder, lighter with depth, files greyer
   Viz/Navigator.cs                   zoom path + back/forward history, kept as names so it survives rescans
+  Updates/Updater.cs                 latest GitHub release, download + SHA-256 check, swap the running exe
 src/UberDisk.App          WPF shell (layout B) + SkiaSharp renderer
   SunburstPainter.cs                 all drawing (no WPF), SunburstView.cs = mouse handling
   MainWindow.xaml(.cs)               drive rail, top bar, breadcrumb, hover card, context menu, keys
+  MainWindow.Update.cs               update check at startup, the update note in the rail, install and restart
 tests/UberDisk.Core.Tests xUnit tests for scanner, layout, queue, palette
 tools/Preview             renders the chart to PNG headless (used to check the drawing without Windows)
 ```

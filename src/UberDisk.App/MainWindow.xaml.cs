@@ -77,6 +77,7 @@ public partial class MainWindow : Window
         _tick.Start();
         _driveRefresh.Start();
         UpdateAll();
+        StartUpdateCheck();
         if (Demo.ShotsDir is { } shots) await TakeDemoShotsAsync(shots);
     }
 
@@ -713,8 +714,6 @@ public partial class MainWindow : Window
         AppSettings.Window = new WindowPlace(r.Left, r.Top, r.Width, r.Height, WindowState == WindowState.Maximized);
         AppSettings.Save();
     }
-
-    private void Version_Click(object sender, RoutedEventArgs e) => App.OpenUrl(App.RepoUrl + "/releases");
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
