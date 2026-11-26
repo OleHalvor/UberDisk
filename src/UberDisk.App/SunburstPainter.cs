@@ -241,7 +241,7 @@ public sealed class SunburstPainter
     /// <summary>Segment order (full paths, first = rank 0) of the last finished whole-drive layout, or null.</summary>
     private static Dictionary<string, int>? LoadOrder(DirNode? root)
     {
-        if (root == null) return null;
+        if (root == null || Demo.On) return null;
         try
         {
             var file = OrderFile(root);
@@ -260,6 +260,7 @@ public sealed class SunburstPainter
 
     private static void SaveOrder(DirNode root, Dictionary<string, int> ranks)
     {
+        if (Demo.On) return;
         var file = OrderFile(root);
         var lines = ranks.OrderBy(kv => kv.Value).Take(MaxSavedOrder).Select(kv => kv.Key).ToList();
         Task.Run(() =>

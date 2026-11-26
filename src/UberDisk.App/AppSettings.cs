@@ -28,6 +28,7 @@ internal static class AppSettings
 
     public static void Load()
     {
+        if (Demo.On) return; // demo: the defaults
         try
         {
             if (!File.Exists(FilePath)) return;
@@ -62,6 +63,7 @@ internal static class AppSettings
 
     public static void Save()
     {
+        if (Demo.On) return;
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);

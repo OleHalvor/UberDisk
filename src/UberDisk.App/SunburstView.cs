@@ -196,4 +196,16 @@ public sealed class SunburstView : SkiaCanvas
     }
 
     private (Segment? seg, bool center) HitTest(Point p) => _painter.HitTest(p.X, p.Y);
+
+    // ---------- Demo screenshots (see MainWindow.Demo.cs) ----------
+
+    internal bool Animating => _painter.Animating;
+    internal Segment? SegmentAt(Point p) => HitTest(p).seg;
+
+    /// <summary>Hovers what is at <paramref name="p"/> as if the mouse were there; null clears the hover.</summary>
+    internal void DemoHover(Point? p)
+    {
+        if (p is { } at) { var (seg, center) = HitTest(at); SetHover(seg, center, at); }
+        else SetHover(null, false, default);
+    }
 }

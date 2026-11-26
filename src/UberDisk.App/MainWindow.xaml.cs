@@ -15,7 +15,7 @@ namespace UberDisk.App;
 
 public partial class MainWindow : Window
 {
-    private readonly ScanCoordinator _scans = new(refreshMeta: DriveMeta.Refresh);
+    private readonly ScanCoordinator _scans = Demo.NewCoordinator();
     private readonly ObservableCollection<DriveCard> _cards = new();
     private readonly Dictionary<string, Navigator> _nav = new(StringComparer.OrdinalIgnoreCase);
     private readonly DispatcherTimer _tick;
@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        if (Demo.ShotsDir != null) ShowActivated = false; // don't take the keyboard from whoever is at the PC
         DriveList.ItemsSource = _cards;
 
         Chart.SegmentClicked += OnSegmentClicked;
@@ -60,12 +61,12 @@ public partial class MainWindow : Window
 
     private async Task StartAsync()
     {
-        var drives = await Task.Run(DriveMeta.List);
+        var drives = await Task.Run(Demo.ListDrives);
         _scans.UpdateDrives(drives);
         SyncCards();
 
         // Open the system drive (or the first ready fixed drive), then queue the rest in the background.
-        string sys = System.IO.Path.GetPathRoot(Environment.SystemDirectory) ?? "C:\\";
+        string sys = Demo.On ? "C:\\" : System.IO.Path.GetPathRoot(Environment.SystemDirectory) ?? "C:\\";
         var first = drives.FirstOrDefault(d => d.IsReady && string.Equals(d.Root, sys, StringComparison.OrdinalIgnoreCase))
                     ?? drives.FirstOrDefault(d => d.IsReady && d.AutoScan)
                     ?? drives.FirstOrDefault(d => d.IsReady);
@@ -74,6 +75,7 @@ public partial class MainWindow : Window
         _tick.Start();
         _driveRefresh.Start();
         UpdateAll();
+        if (Demo.ShotsDir is { } shots) await TakeDemoShotsAsync(shots);
     }
 
     private async void RefreshDrivesAsync()
@@ -82,7 +84,7 @@ public partial class MainWindow : Window
         _refreshingDrives = true;
         try
         {
-            var drives = await Task.Run(DriveMeta.List);
+            var drives = await Task.Run(Demo.ListDrives);
             _scans.UpdateDrives(drives);
             SyncCards();
             UpdateAll();
@@ -415,12 +417,12 @@ public partial class MainWindow : Window
 
         if (isDir && node != Chart.CenterNode)
             menu.Items.Add(Item("\uE71E", "Zoom into folder", "Click", () => Nav?.ZoomTo((DirNode)node)));
-        menu.Items.Add(Item("\uE838", "Open in Explorer", "Ctrl+E", () => OpenInExplorer(node)));
+        if (!Demo.On) menu.Items.Add(Item("\uE838", "Open in Explorer", "Ctrl+E", () => OpenInExplorer(node)));
         menu.Items.Add(Item("\uE8C8", "Copy path", "Ctrl+C", () => CopyPath(folderPath)));
         if (isDir && ActiveSession?.State == ScanState.Done)
             menu.Items.Add(Item("\uE72C", node.Parent == null ? "Rescan drive" : "Rescan this folder only", node.Parent == null ? "F5" : "",
                 () => RescanFolder((DirNode)node)));
-        if (allowDelete && ActiveSession is { } s)
+        if (allowDelete && !Demo.On && ActiveSession is { } s)
         {
             var block = DeleteSafety.CheckTree(node, s.Tree, s.State != ScanState.Done);
             if (block is not (DeleteBlock.DriveRoot or DeleteBlock.Synthetic or DeleteBlock.NotInTree))
@@ -445,6 +447,7 @@ public partial class MainWindow : Window
     /// </summary>
     private async void DeleteNode(Node node, DriveSession s)
     {
+        if (Demo.On) return; // demo paths may exist on the real disk
         DeletePlan? plan;
         DeleteBlock block;
         var tree = s.Tree;
@@ -510,6 +513,7 @@ public partial class MainWindow : Window
 
     private static void OpenInExplorer(Node node)
     {
+        if (Demo.On) return;
         try
         {
             if (node is FileNode { IsAggregate: true } agg)

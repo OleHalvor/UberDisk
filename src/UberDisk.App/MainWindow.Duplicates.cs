@@ -79,6 +79,11 @@ public partial class MainWindow
         st.Tree = tree;
         st.MinSize = min;
         st.Error = null;
+        if (Demo.On)
+        {
+            st.Result = UberDisk.Core.Demo.DemoDisk.FindDuplicates(tree, min); // the demo files have no content to read
+            return;
+        }
         var finder = new DuplicateFinder(tree, new DuplicateOptions
         {
             MinSize = min,
@@ -115,7 +120,7 @@ public partial class MainWindow
     private void StopDuplicatesAndSave()
     {
         foreach (var d in _dups.Values) d.Running?.Cancel();
-        _hashCache.Save();
+        if (!Demo.On) _hashCache.Save();
     }
 
     /// <summary>Badge, panel and chart state. Called on every refresh tick.</summary>
@@ -225,6 +230,7 @@ public partial class MainWindow
         var open = new Button { Style = (Style)FindResource("IconButton"), Width = 28, Height = 28, FontSize = 13, Content = "", ToolTip = "Open in Explorer (selects the file)" };
         open.Click += (_, _) =>
         {
+            if (Demo.On) return;
             try { Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true }); }
             catch (Exception) { /* Explorer not available: nothing useful to do */ }
         };
